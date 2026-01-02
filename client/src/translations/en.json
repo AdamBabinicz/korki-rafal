@@ -1,0 +1,37 @@
+{
+  "translation": {
+    "nav": {
+      "home": "Home",
+      "dashboard": "Dashboard",
+      "booking": "Booking",
+      "login": "Login",
+      "logout": "Logout",
+      "register": "Register"
+    },
+    "hero": {
+      "title": "Master Math with MathMentor",
+      "subtitle": "Intelligent booking system for math tutoring. Learn smarter, not harder.",
+      "cta": "Get Started"
+    },
+    "features": {
+      "title": "Why MathMentor?",
+      "scheduling": "Easy Scheduling",
+      "scheduling_desc": "Book your lessons in seconds with our intuitive calendar.",
+      "progress": "Track Progress",
+      "progress_desc": "Monitor your learning history and upcoming lesson topics.",
+      "flexible": "Flexible Cancellation",
+      "flexible_desc": "Cancel up to 24 hours before the lesson directly from your dashboard."
+    },
+    "dashboard": {
+      "next_lesson": "Next lesson in",
+      "upcoming": "Upcoming Lessons",
+      "no_lessons": "No upcoming lessons.",
+      "history": "Lesson History"
+    },
+    "common": {
+      "pl": "PL",
+      "en": "EN",
+      "theme_toggle": "Toggle Theme"
+    }
+  }
+}

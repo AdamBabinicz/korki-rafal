@@ -1,0 +1,37 @@
+{
+  "translation": {
+    "nav": {
+      "home": "Strona główna",
+      "dashboard": "Panel",
+      "booking": "Rezerwacja",
+      "login": "Zaloguj się",
+      "logout": "Wyloguj",
+      "register": "Zarejestruj się"
+    },
+    "hero": {
+      "title": "Mistrz Matematyki z MathMentor",
+      "subtitle": "Zautomatyzowany system rezerwacji zajęć matematycznych. Ucz się mądrzej, nie trudniej.",
+      "cta": "Zacznij teraz"
+    },
+    "features": {
+      "title": "Dlaczego MathMentor?",
+      "scheduling": "Łatwe planowanie",
+      "scheduling_desc": "Rezerwuj lekcje w kilka sekund dzięki naszemu intuicyjnemu kalendarzowi.",
+      "progress": "Śledź postępy",
+      "progress_desc": "Monitoruj swoją historię nauki i nadchodzące tematy zajęć.",
+      "flexible": "Elastyczne odwoływanie",
+      "flexible_desc": "Anuluj zajęcia do 24 godzin przed ich rozpoczęciem bezpośrednio w panelu."
+    },
+    "dashboard": {
+      "next_lesson": "Następna lekcja za",
+      "upcoming": "Nadchodzące lekcje",
+      "no_lessons": "Brak nadchodzących lekcji.",
+      "history": "Historia lekcji"
+    },
+    "common": {
+      "pl": "PL",
+      "en": "EN",
+      "theme_toggle": "Przełącz motyw"
+    }
+  }
+}
