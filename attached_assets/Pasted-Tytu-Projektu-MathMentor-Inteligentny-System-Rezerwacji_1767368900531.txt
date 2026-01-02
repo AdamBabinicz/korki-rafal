@@ -1,0 +1,88 @@
+Tytuł Projektu: MathMentor – Inteligentny System Rezerwacji Korepetycji
+Cel główny: Stworzenie kompleksowej, responsywnej aplikacji webowej (SPA) dla korepetytora matematyki, służącej do zarządzania grafikiem zajęć, rezerwacjami uczniów oraz historią lekcji. Aplikacja ma łączyć profesjonalny panel administracyjny z przyjaznym interfejsem dla ucznia (Mobile First).
+Kluczowa cecha architektoniczna: Aplikacja działa na darmowych instancjach (Netlify + Render). Zamiast WebSocketów, wykorzystuje strategię "Smart Polling / Refetch on Focus" przy użyciu TanStack Query, aby zapewnić odczucie czasu rzeczywistego bez obciążania serwera stałym połączeniem.
+1. Stack Technologiczny i Wymagania
+Frontend: React (Vite), TypeScript, Tailwind CSS.
+State Management & Data Fetching: TanStack Query (React Query) – to krytyczne. Skonfiguruj refetchOnWindowFocus: true dla zapytań o kalendarz.
+Backend: Node.js + Express.
+Baza Danych: MongoDB (przygotuj kod pod połączenie z MongoDB Atlas za pomocą Mongoose).
+Auth: JSON Web Tokens (JWT) – role: ADMIN (korepetytor) i STUDENT.
+UI Components: Headless UI lub Radix UI + Lucide React (ikony).
+Powiadomienia: Nodemailer (konfiguracja pod SMTP Gmail lub Resend).
+Wielojęzyczność: i18next (PL - domyślny, EN).
+Data/Czas: date-fns lub luxon (kluczowa obsługa stref czasowych).
+2. Koncepcja Wizualna i UX
+Styl: Nowoczesny, edukacyjny, "Clean & Smart". Motywy geometryczne (fraktale, figury) w tle.
+Motyw: Obsługa Light/Dark Mode. Dark mode ma być "Soft Dark" (ciemny granat/szarość, nie czysta czerń), przyjazny dla oczu podczas nocnej nauki.
+Generowanie Obrazów (AI): Wygeneruj i użyj grafik w aplikacji:
+Hero Image: "Digital illustration of abstract mathematics, glowing geometry symbols, isometric style, friendly educational atmosphere, blue and orange palette."
+Empty State: Ilustracja dla pustego kalendarza lub braku historii.
+Login/Register: Minimalistyczna grafika matematyczna w tle.
+3. Funkcjonalności – Strefa Ucznia
+Dashboard:
+Licznik "Następna lekcja za: X dni/godzin".
+Szybki podgląd nadchodzących wizyt.
+Kalendarz Rezerwacji:
+Widok tygodniowy i miesięczny (responsywny).
+Kolory slotów: Zielony (Wolny), Szary (Zajęty), Pomarańczowy (Mój).
+Logika rezerwacji: Kliknięcie w wolny slot -> Modal potwierdzenia -> Request do API.
+Zarządzanie Rezerwacją:
+Możliwość odwołania wizyty.
+Guard (Zabezpieczenie): Przycisk "Odwołaj" jest nieaktywny (lub zwraca błąd), jeśli do zajęć zostało mniej niż 24h. Wyświetl komunikat: "Zbyt późno na odwołanie. Prosimy o kontakt telefoniczny."
+Lista Rezerwowa (Waitlist):
+Jeśli dany dzień nie ma wolnych slotów, pojawia się przycisk "Powiadom mnie o dostępności".
+Logika: Gdy Admin lub inny uczeń zwolni termin w tym dniu, system wysyła e-mail do osób z listy.
+Historia Lekcji:
+Tabela/Lista odbytych zajęć (Data, Temat - jeśli wpisany przez admina).
+Licznik lekcji w bieżącym miesiącu (dla rodziców).
+4. Funkcjonalności – Strefa Admina (Korepetytora)
+Zarządzanie Grafikiem (Generator Slotów):
+Zamiast klikać pojedynczo, Admin definiuje: "Dodaj sloty: Pn-Pt, 16:00-20:00, czas trwania: 60 min". System generuje sloty w bazie.
+Możliwość ręcznego usuwania/dodawania pojedynczych slotów.
+Możliwość oznaczania dni jako "Urlop" (blokada całego dnia).
+God Mode (Nadpisywanie Zasad):
+Admin może usunąć rezerwację ucznia nawet 1h przed zajęciami (z pominięciem blokady 24h).
+Admin może ręcznie wpisać ucznia na slot (np. "Rezerwacja telefoniczna").
+Status Płatności:
+W widoku szczegółów lekcji, dodaj przełącznik (Toggle): "Opłacona: TAK/NIE".
+Widoczny tylko dla Admina (lub opcjonalnie dla ucznia jako "Status: Nieopłacona").
+Baza Uczniów:
+Lista zarejestrowanych użytkowników.
+Możliwość podglądu historii konkretnego ucznia i notatek prywatnych (np. "Przerabiamy całki").
+5. Backend i Bezpieczeństwo (Render Specifics)
+Obsługa "Cold Start": Ponieważ darmowy Render usypia serwer, dodaj na Frontendzie mechanizm "Waking up server". Przy pierwszym zapytaniu, jeśli trwa długo (>2s), wyświetl przyjazny loader/komunikat: "Uruchamianie systemu rezerwacji...".
+Wysyłka E-maili:
+Utwórz serwis mailowy (szablon HTML).
+Trigger: Po udanej rezerwacji (do ucznia i admina).
+Trigger: Po anulowaniu (do drugiej strony).
+Trigger: Powiadomienie z Listy Rezerwowej.
+Walidacja: Użyj zod na frontendzie i backendzie do walidacji danych wejściowych.
+6. SEO i Dostępność (Standardy)
+SEO: Skonfiguruj react-helmet-async. Dynamiczne tytuły dla każdej podstrony (np. "Kalendarz - MathMentor", "Moje Lekcje - MathMentor").
+Meta Tagi: Generuj description i tagi OpenGraph.
+A11y (Dostępność):
+Semantyczny HTML (nav, main, section, footer).
+Wszystkie interaktywne elementy (ikony bez tekstu) muszą mieć aria-label.
+Kolory w Dark Mode muszą spełniać normy kontrastu WCAG AA.
+Focus ring musi być widoczny przy nawigacji klawiaturą.
+Mobile First: Kalendarz na mobile musi być czytelny (np. lista slotów zamiast dużej siatki miesięcznej na małych ekranach).
+7. Struktura Projektu (Monorepo dla Replit)
+code
+Text
+/
+├── client/ (React Vite App)
+│   ├── src/
+│   │   ├── components/ (Calendar, BookingModal, PaymentToggle, WaitlistButton)
+│   │   ├── pages/ (Dashboard, AdminPanel, History, LandingPage)
+│   │   ├── hooks/ (useAuth, useCalendar - z React Query)
+│   │   ├── api/ (axios config)
+│   │   └── translations/ (pl.json, en.json)
+│   └── index.html
+├── server/ (Node Express API)
+│   ├── models/ (User, Lesson, Slot, Waitlist)
+│   ├── routes/
+│   ├── controllers/
+│   └── services/ (EmailService)
+└── package.json (root scripts to build both)
+Zadanie dla Agenta:
+Rozpocznij od wygenerowania struktury plików i konfiguracji client oraz server. Następnie stwórz backend z modelami Mongoose, uwzględniającymi isPaid (bool), status (reserved/free), oraz logikę listy rezerwowej. Na końcu zbuduj frontend z naciskiem na "Smart Fetching" w kalendarzu.
