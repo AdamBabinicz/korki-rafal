@@ -20,16 +20,16 @@ Desktop.ini
 .vscode/
 .idea/
 
-# Inne
+# Inne (pliki użytkownika i serwera)
 *.tar.gz
 *.zip
 server/public/
-attached_assets/
 
-# Twój folder lokalny (zostaje na dysku, nie leci na GitHub)
+# Twoje prywatne zasoby (Zostają na dysku, nie lecą na GitHub)
+attached_assets/
 /pliki
 
-# Replit (blokada plików konfiguracyjnych)
+# Replit (blokada plików konfiguracyjnych i integracji AI)
 .replit
 replit.nix
 server/replit_integrations/
