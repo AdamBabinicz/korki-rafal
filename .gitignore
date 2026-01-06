@@ -33,3 +33,4 @@ attached_assets/
 .replit
 replit.nix
 server/replit_integrations/
+.local/
