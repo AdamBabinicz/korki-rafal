@@ -9,11 +9,18 @@ import { User } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
 
-// NOTE: In a real app, use a proper password hashing library like bcrypt or argon2.
-// This is a simplified example using Node's crypto for demonstration.
-// Since we are storing passwords in plain text for the mock seed data, 
-// we will just compare plain text for now for the Seed Users, 
-// OR implementing a simple hash function.
+async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
+  return `${buf.toString("hex")}.${salt}`;
+}
+
+async function comparePasswords(supplied: string, stored: string) {
+  const [hashed, salt] = stored.split(".");
+  const hashedPasswordBuf = Buffer.from(hashed, "hex");
+  const suppliedPasswordBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  return timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
+}
 
 export function setupAuth(app: Express) {
   const sessionSettings: session.SessionOptions = {
@@ -21,6 +28,10 @@ export function setupAuth(app: Express) {
     resave: false,
     saveUninitialized: false,
     store: storage.sessionStore,
+    cookie: {
+      secure: app.get("env") === "production",
+      maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+    },
   };
 
   if (app.get("env") === "production") {
@@ -33,18 +44,22 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      const user = await storage.getUserByUsername(username);
-      if (!user) {
-        return done(null, false);
+      try {
+        const user = await storage.getUserByUsername(username);
+        if (!user) {
+          return done(null, false);
+        }
+
+        const isValid = await comparePasswords(password, user.password);
+        if (!isValid) {
+          return done(null, false);
+        }
+
+        return done(null, user);
+      } catch (err) {
+        return done(err);
       }
-      
-      // Simple password check for seed data (plaintext)
-      if (user.password !== password) {
-        return done(null, false);
-      }
-      
-      return done(null, user);
-    }),
+    })
   );
 
   passport.serializeUser((user, done) => {
@@ -52,7 +67,83 @@ export function setupAuth(app: Express) {
   });
 
   passport.deserializeUser(async (id, done) => {
-    const user = await storage.getUser(id as number);
-    done(null, user);
+    try {
+      const user = await storage.getUser(id as number);
+      done(null, user);
+    } catch (err) {
+      done(err);
+    }
+  });
+
+  app.post("/api/register", async (req, res, next) => {
+    try {
+      const existingUser = await storage.getUserByUsername(req.body.username);
+      if (existingUser) {
+        return res.status(400).send("Username already exists");
+      }
+
+      const hashedPassword = await hashPassword(req.body.password);
+      const user = await storage.createUser({
+        ...req.body,
+        password: hashedPassword,
+      });
+
+      req.login(user, (err) => {
+        if (err) return next(err);
+        res.status(201).json(user);
+      });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  app.post("/api/login", passport.authenticate("local"), (req, res) => {
+    res.status(200).json(req.user);
+  });
+
+  app.post("/api/logout", (req, res, next) => {
+    req.logout((err) => {
+      if (err) return next(err);
+      res.sendStatus(200);
+    });
+  });
+
+  // NOWY ENDPOINT: Zmiana hasła
+  app.post("/api/change-password", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+
+    const { currentPassword, newPassword } = req.body;
+    const user = req.user as User;
+
+    try {
+      // 1. Pobierz aktualnego usera z bazy (dla pewności, że mamy aktualny hash)
+      const dbUser = await storage.getUser(user.id);
+      if (!dbUser) return res.sendStatus(404);
+
+      // 2. Sprawdź stary hash
+      const isValid = await comparePasswords(currentPassword, dbUser.password);
+      if (!isValid) {
+        return res.status(400).json({ message: "Invalid current password" });
+      }
+
+      // 3. Zahaszuj nowe hasło
+      const newHashedPassword = await hashPassword(newPassword);
+
+      // 4. Zaktualizuj w bazie
+      await storage.updateUser(user.id, { password: newHashedPassword });
+
+      res.status(200).json({ message: "Password updated successfully" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.get("/api/user", (req, res) => {
+    // ZMIANA: Zwracamy null (200 OK) zamiast 401, żeby nie śmiecić w konsoli
+    if (!req.isAuthenticated()) {
+      return res.json(null);
+    }
+    res.json(req.user);
   });
 }

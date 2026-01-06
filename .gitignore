@@ -1,6 +1,32 @@
+# Zależności
 node_modules
+npm-debug.log*
+yarn-error.log*
+
+# Budowanie (plików wynikowych nie wysyłamy)
 dist
+dist-ssr
+
+# Zmienne środowiskowe (KRYTYCZNE - nie usuwaj tego!)
+.env
+.env.*.local
+
+# Pliki systemowe (śmieci generowane przez Windows/Mac)
 .DS_Store
-server/public
-vite.config.ts.*
+Thumbs.db
+Desktop.ini
+
+# Edytory kodu
+.vscode/
+.idea/
+
+# Inne
 *.tar.gz
+*.zip
+server/public/
+attached_assets/
+
+# Replit (blokada plików konfiguracyjnych)
+.replit
+replit.nix
+server/replit_integrations/

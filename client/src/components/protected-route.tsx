@@ -1,35 +1,49 @@
 import { useUser } from "@/hooks/use-auth";
-import { Route, useLocation } from "wouter";
 import { Loader2 } from "lucide-react";
+import { Redirect, Route } from "wouter";
+import React from "react";
 
-type Props = {
+type ProtectedRouteProps = {
   path: string;
-  component: React.ComponentType<any>;
-  role?: "admin" | "student";
+  component: () => React.JSX.Element;
+  role?: string; // Dodano opcjonalny parametr role
 };
 
-export function ProtectedRoute({ path, component: Component, role }: Props) {
+export function ProtectedRoute({
+  path,
+  component: Component,
+  role,
+}: ProtectedRouteProps) {
   const { data: user, isLoading } = useUser();
-  const [, setLocation] = useLocation();
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="w-12 h-12 text-primary animate-spin" />
-      </div>
+      <Route path={path}>
+        <div className="flex items-center justify-center min-h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Route>
     );
   }
 
+  // Jeśli brak użytkownika -> przekieruj do logowania
   if (!user) {
-    setLocation("/login");
-    return null;
+    return (
+      <Route path={path}>
+        <Redirect to="/login" />
+      </Route>
+    );
   }
 
+  // Jeśli wymagana jest rola (np. "admin"), a użytkownik jej nie ma -> przekieruj na pulpit
   if (role && user.role !== role) {
-    // Redirect if role doesn't match
-    setLocation(user.role === "admin" ? "/admin" : "/dashboard");
-    return null;
+    return (
+      <Route path={path}>
+        <Redirect to="/dashboard" />
+      </Route>
+    );
   }
 
+  // Jeśli wszystko ok -> wyświetl komponent
   return <Route path={path} component={Component} />;
 }

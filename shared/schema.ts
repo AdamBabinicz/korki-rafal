@@ -1,13 +1,26 @@
-import { pgTable, text, serial, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  serial,
+  integer,
+  boolean,
+  timestamp,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
+  email: text("email").notNull(), // Zmiana: email jest teraz wymagany w bazie
   password: text("password").notNull(),
-  role: text("role").notNull().default("student"), // 'admin' | 'student'
+  role: text("role").notNull().default("student"),
   name: text("name").notNull(),
+  phone: text("phone"),
+  address: text("address"),
+  adminNotes: text("admin_notes"),
+  defaultPrice: integer("default_price"),
 });
 
 export const slots = pgTable("slots", {
@@ -18,23 +31,70 @@ export const slots = pgTable("slots", {
   studentId: integer("student_id").references(() => users.id),
   isPaid: boolean("is_paid").default(false).notNull(),
   topic: text("topic"),
-  notes: text("notes"), // Private admin notes
+  notes: text("notes"),
+  price: integer("price"),
+  adminNotes: text("admin_notes"),
+});
+
+export const weeklySchedule = pgTable("weekly_schedule", {
+  id: serial("id").primaryKey(),
+  dayOfWeek: integer("day_of_week").notNull(),
+  startTime: text("start_time").notNull(),
+  durationMinutes: integer("duration_minutes").notNull(),
+  studentId: integer("student_id").references(() => users.id),
+  price: integer("price").notNull().default(0),
 });
 
 export const waitlist = pgTable("waitlist", {
   id: serial("id").primaryKey(),
   date: timestamp("date").notNull(),
-  userId: integer("user_id").references(() => users.id).notNull(),
+  userId: integer("user_id")
+    .references(() => users.id)
+    .notNull(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  role: true,
-  name: true,
+export const sessions = pgTable("session", {
+  sid: text("sid").primaryKey(),
+  sess: jsonb("sess").notNull(),
+  expire: timestamp("expire", { precision: 6 }).notNull(),
 });
 
-export const insertSlotSchema = createInsertSchema(slots).omit({
+export const insertUserSchema = createInsertSchema(users)
+  .pick({
+    username: true,
+    password: true,
+    role: true,
+    name: true,
+    phone: true,
+    address: true,
+    adminNotes: true,
+    defaultPrice: true,
+  })
+  .extend({
+    email: z.string().email("Nieprawidłowy format adresu email"), // Zmiana: walidacja adresu email jest wymagana
+  });
+
+// Używamy .partial() dla pól, które mogą nie być przesyłane w formularzu
+export const insertSlotSchema = createInsertSchema(slots, {
+  startTime: z.coerce.date(),
+  endTime: z.coerce.date(),
+})
+  .omit({
+    id: true,
+  })
+  .partial({
+    studentId: true,
+    isBooked: true,
+    isPaid: true,
+    topic: true,
+    notes: true,
+    price: true,
+    adminNotes: true,
+  });
+
+export const insertWeeklyScheduleSchema = createInsertSchema(
+  weeklySchedule
+).omit({
   id: true,
 });
 
@@ -42,18 +102,24 @@ export const insertWaitlistSchema = createInsertSchema(waitlist).omit({
   id: true,
 });
 
+export const generateSlotsSchema = z.object({
+  startDate: z.string(),
+  endDate: z.string(),
+  startTime: z.string(),
+  endTime: z.string(),
+  duration: z.number(),
+});
+
+export const generateFromTemplateSchema = z.object({
+  startDate: z.string(),
+  endDate: z.string(),
+});
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Slot = typeof slots.$inferSelect;
 export type InsertSlot = z.infer<typeof insertSlotSchema>;
+export type WeeklySchedule = typeof weeklySchedule.$inferSelect;
+export type InsertWeeklySchedule = z.infer<typeof insertWeeklyScheduleSchema>;
 export type Waitlist = typeof waitlist.$inferSelect;
 export type InsertWaitlist = z.infer<typeof insertWaitlistSchema>;
-
-// Custom types for API
-export const generateSlotsSchema = z.object({
-  startDate: z.string(), // ISO date
-  endDate: z.string(), // ISO date
-  startTime: z.string(), // "16:00"
-  endTime: z.string(), // "20:00"
-  duration: z.number(), // minutes
-});

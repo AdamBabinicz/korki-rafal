@@ -1,14 +1,20 @@
 import { useState } from "react";
 import { useLogin } from "@/hooks/use-auth";
-import { Button } from "@/components/ui-button";
-import { Input } from "@/components/ui-input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false); // Stan dla podglądu hasła
+
   const { mutate: login, isPending } = useLogin();
   const { toast } = useToast();
 
@@ -29,42 +35,79 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background p-4">
-      <Card className="w-full max-w-md border-primary/20 shadow-2xl shadow-primary/10">
-        <CardHeader className="text-center pb-8">
-          <div className="mx-auto w-12 h-12 bg-gradient-to-br from-primary to-orange-500 rounded-xl mb-4 flex items-center justify-center text-white font-bold text-xl">M</div>
-          <CardTitle className="text-3xl">Welcome Back</CardTitle>
-          <p className="text-muted-foreground mt-2">Sign in to manage your lessons</p>
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-secondary/20 via-background to-background p-4">
+      <Card className="w-full max-w-md border-secondary/20 shadow-2xl shadow-secondary/10">
+        <CardHeader className="text-center pb-4">
+          <div className="mx-auto w-12 h-12 bg-gradient-to-br from-orange-500 to-primary rounded-xl mb-4 flex items-center justify-center text-white font-bold text-xl shadow-lg">
+            M
+          </div>
+          <CardTitle className="text-3xl font-bold">{t("nav.login")}</CardTitle>
+          <p className="text-muted-foreground mt-2">{t("auth.welcome_back")}</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Username</label>
+              <Label htmlFor="username">{t("auth.username")}</Label>
               <Input
+                id="username"
                 required
-                placeholder="Enter your username"
+                placeholder={t("auth.username_placeholder")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username" // Naprawa błędu autocomplete
               />
             </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Password</label>
-              <Input
-                required
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <Label htmlFor="password">{t("auth.password")}</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  required
+                  type={showPassword ? "text" : "password"} // Obsługa podglądu
+                  placeholder={t("auth.password_placeholder")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password" // Naprawa błędu autocomplete
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">
+                    {showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  </span>
+                </Button>
+              </div>
             </div>
-            <Button type="submit" className="w-full mt-4" isLoading={isPending} size="lg">
-              Sign In
+
+            <Button
+              type="submit"
+              className="w-full mt-2 font-bold bg-orange-500 hover:bg-orange-600 text-white"
+              disabled={isPending}
+              size="lg"
+            >
+              {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {t("nav.login")}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link href="/register" className="text-primary hover:text-primary/80 font-semibold hover:underline">
-              Register here
+            {t("auth.no_account")}{" "}
+            {/* NAPRAWA BŁĘDU: Usunięto zagnieżdżone <a>, style przeniesione do Link */}
+            <Link
+              href="/register"
+              className="text-orange-500 hover:text-orange-600 font-semibold hover:underline cursor-pointer"
+            >
+              {t("nav.register")}
             </Link>
           </div>
         </CardContent>

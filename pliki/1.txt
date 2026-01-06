@@ -1,0 +1,6 @@
+Cześć, wracamy do pracy nad projektem MathMentor (System rezerwacji korepetycji: React+Vite, Node+Express, Drizzle ORM, Neon DB).
+Status prac z wczoraj:
+Frontend (Admin Panel): Mieliśmy problem z CSS w client/src/pages/admin.tsx – sloty kalendarza i dane uczniów zachodziły na siebie. Przygotowałeś dla mnie poprawioną wersję kodu używającą flex i overflow-x-auto zamiast grid, aby naprawić responsywność. Mam ten kod do wdrożenia/przetestowania.
+Baza Danych (Drizzle): Podczas próby dodania nowych pól (adres, telefon) komenda npm run db:push ostrzegała o usunięciu tabeli session. Musimy upewnić się, że plik schema.ts jest poprawnie zsynchronizowany z bazą na Neon, aby nie stracić danych, a tylko zaktualizować kolumny.
+Plan na dziś:
+Chcę najpierw sprawdzić, czy nowy wygląd kalendarza działa poprawnie, a następnie bezpiecznie zaktualizować strukturę bazy danych. Od czego zaczynamy?

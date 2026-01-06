@@ -1,34 +1,45 @@
-import { db, pool } from "./db";
 import {
-  users, slots, waitlist,
-  type User, type InsertUser,
-  type Slot, type InsertSlot,
-  type Waitlist, type InsertWaitlist
+  users,
+  slots,
+  weeklySchedule,
+  waitlist,
+  type User,
+  type InsertUser,
+  type Slot,
+  type InsertSlot,
+  type WeeklySchedule,
+  type InsertWeeklySchedule,
+  type Waitlist,
+  type InsertWaitlist,
 } from "@shared/schema";
+import { db } from "./db";
 import { eq, and, gte, lte } from "drizzle-orm";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { pool } from "./db";
 
 const PostgresSessionStore = connectPg(session);
 
 export interface IStorage {
-  sessionStore: session.Store;
-  
-  // User
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-  
-  // Slots
-  getSlots(start?: Date, end?: Date): Promise<Slot[]>;
+  getAllUsers(): Promise<User[]>;
+  updateUser(id: number, user: Partial<InsertUser>): Promise<User>;
+  deleteUser(id: number): Promise<void>;
+
   getSlot(id: number): Promise<Slot | undefined>;
+  getSlots(start?: Date, end?: Date): Promise<Slot[]>;
   createSlot(slot: InsertSlot): Promise<Slot>;
-  updateSlot(id: number, updates: Partial<InsertSlot>): Promise<Slot>;
+  updateSlot(id: number, slot: Partial<InsertSlot>): Promise<Slot>;
   deleteSlot(id: number): Promise<void>;
-  
-  // Waitlist
-  addToWaitlist(entry: InsertWaitlist): Promise<Waitlist>;
-  getWaitlist(date: Date): Promise<Waitlist[]>;
+
+  getWeeklySchedule(): Promise<(WeeklySchedule & { student?: User | null })[]>;
+  createWeeklyScheduleItem(item: InsertWeeklySchedule): Promise<WeeklySchedule>;
+  deleteWeeklyScheduleItem(id: number): Promise<void>;
+
+  addToWaitlist(item: InsertWaitlist): Promise<Waitlist>;
+  sessionStore: session.Store;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -47,7 +58,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.username, username));
     return user;
   }
 
@@ -56,13 +70,34 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async getSlots(start?: Date, end?: Date): Promise<Slot[]> {
-    if (start && end) {
-      return await db.select().from(slots).where(
-        and(gte(slots.startTime, start), lte(slots.startTime, end))
-      );
-    }
-    return await db.select().from(slots);
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.name);
+  }
+
+  async updateUser(id: number, updateUser: Partial<InsertUser>): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set(updateUser)
+      .where(eq(users.id, id))
+      .returning();
+    return user;
+  }
+
+  async deleteUser(id: number): Promise<void> {
+    // 1. Zwalniamy sloty przypisane do ucznia
+    await db
+      .update(slots)
+      .set({ isBooked: false, studentId: null, isPaid: false, topic: null })
+      .where(eq(slots.studentId, id));
+
+    // 2. Usuwamy z szablonu tygodniowego
+    await db.delete(weeklySchedule).where(eq(weeklySchedule.studentId, id));
+
+    // 3. Usuwamy z listy rezerwowej
+    await db.delete(waitlist).where(eq(waitlist.userId, id));
+
+    // 4. Usuwamy ucznia
+    await db.delete(users).where(eq(users.id, id));
   }
 
   async getSlot(id: number): Promise<Slot | undefined> {
@@ -70,32 +105,97 @@ export class DatabaseStorage implements IStorage {
     return slot;
   }
 
-  async createSlot(slot: InsertSlot): Promise<Slot> {
-    const [newSlot] = await db.insert(slots).values(slot).returning();
-    return newSlot;
+  async getSlots(start?: Date, end?: Date): Promise<Slot[]> {
+    let query = db
+      .select({
+        id: slots.id,
+        startTime: slots.startTime,
+        endTime: slots.endTime,
+        isBooked: slots.isBooked,
+        isPaid: slots.isPaid,
+        studentId: slots.studentId,
+        topic: slots.topic,
+        notes: slots.notes,
+        price: slots.price,
+        adminNotes: slots.adminNotes,
+        student: {
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          phone: users.phone,
+        },
+      })
+      .from(slots)
+      .leftJoin(users, eq(slots.studentId, users.id));
+
+    if (start && end) {
+      // @ts-ignore
+      query.where(and(gte(slots.startTime, start), lte(slots.startTime, end)));
+    }
+
+    // @ts-ignore
+    const result = await query.orderBy(slots.startTime);
+    return result.map((row) => ({
+      ...row,
+      student: row.student,
+    })) as unknown as Slot[];
   }
 
-  async updateSlot(id: number, updates: Partial<InsertSlot>): Promise<Slot> {
-    const [updated] = await db.update(slots)
-      .set(updates)
+  async createSlot(insertSlot: InsertSlot): Promise<Slot> {
+    const [slot] = await db.insert(slots).values(insertSlot).returning();
+    return slot;
+  }
+
+  async updateSlot(id: number, updateSlot: Partial<InsertSlot>): Promise<Slot> {
+    const [slot] = await db
+      .update(slots)
+      .set(updateSlot)
       .where(eq(slots.id, id))
       .returning();
-    return updated;
+    return slot;
   }
 
   async deleteSlot(id: number): Promise<void> {
     await db.delete(slots).where(eq(slots.id, id));
   }
 
-  async addToWaitlist(entry: InsertWaitlist): Promise<Waitlist> {
-    const [item] = await db.insert(waitlist).values(entry).returning();
-    return item;
+  async getWeeklySchedule(): Promise<
+    (WeeklySchedule & { student?: User | null })[]
+  > {
+    const result = await db
+      .select({
+        id: weeklySchedule.id,
+        dayOfWeek: weeklySchedule.dayOfWeek,
+        startTime: weeklySchedule.startTime,
+        durationMinutes: weeklySchedule.durationMinutes,
+        studentId: weeklySchedule.studentId,
+        price: weeklySchedule.price,
+        student: {
+          id: users.id,
+          name: users.name,
+          username: users.username,
+        },
+      })
+      .from(weeklySchedule)
+      .leftJoin(users, eq(weeklySchedule.studentId, users.id));
+
+    return result as (WeeklySchedule & { student?: User | null })[];
   }
 
-  async getWaitlist(date: Date): Promise<Waitlist[]> {
-    // This is a simplification. In reality we'd query by date range or exact date match
-    // depending on how waitlist logic is implemented.
-    return await db.select().from(waitlist);
+  async createWeeklyScheduleItem(
+    item: InsertWeeklySchedule
+  ): Promise<WeeklySchedule> {
+    const [newItem] = await db.insert(weeklySchedule).values(item).returning();
+    return newItem;
+  }
+
+  async deleteWeeklyScheduleItem(id: number): Promise<void> {
+    await db.delete(weeklySchedule).where(eq(weeklySchedule.id, id));
+  }
+
+  async addToWaitlist(item: InsertWaitlist): Promise<Waitlist> {
+    const [entry] = await db.insert(waitlist).values(item).returning();
+    return entry;
   }
 }
 
