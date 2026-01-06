@@ -26,6 +26,9 @@ Desktop.ini
 server/public/
 attached_assets/
 
+# Twój folder lokalny (zostaje na dysku, nie leci na GitHub)
+/pliki
+
 # Replit (blokada plików konfiguracyjnych)
 .replit
 replit.nix
