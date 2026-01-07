@@ -36,6 +36,11 @@ export interface IStorage {
 
   getWeeklySchedule(): Promise<(WeeklySchedule & { student?: User | null })[]>;
   createWeeklyScheduleItem(item: InsertWeeklySchedule): Promise<WeeklySchedule>;
+  // NOWA METODA:
+  updateWeeklyScheduleItem(
+    id: number,
+    item: Partial<InsertWeeklySchedule>
+  ): Promise<WeeklySchedule>;
   deleteWeeklyScheduleItem(id: number): Promise<void>;
 
   addToWaitlist(item: InsertWaitlist): Promise<Waitlist>;
@@ -187,6 +192,19 @@ export class DatabaseStorage implements IStorage {
   ): Promise<WeeklySchedule> {
     const [newItem] = await db.insert(weeklySchedule).values(item).returning();
     return newItem;
+  }
+
+  // NOWA IMPLEMENTACJA
+  async updateWeeklyScheduleItem(
+    id: number,
+    item: Partial<InsertWeeklySchedule>
+  ): Promise<WeeklySchedule> {
+    const [updated] = await db
+      .update(weeklySchedule)
+      .set(item)
+      .where(eq(weeklySchedule.id, id))
+      .returning();
+    return updated;
   }
 
   async deleteWeeklyScheduleItem(id: number): Promise<void> {

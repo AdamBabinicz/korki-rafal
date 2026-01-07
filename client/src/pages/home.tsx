@@ -94,7 +94,7 @@ export default function HomePage() {
           <div className="block relative animate-in fade-in slide-in-from-right-4 duration-1000 delay-200 mt-8 lg:mt-0">
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-orange-500/20 rounded-3xl blur-2xl transform rotate-6 scale-95" />
             <img
-              src="/rafa.avif"
+              src="/rafalp.avif"
               alt="Math Abstract"
               className="relative rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 object-cover h-[350px] lg:h-[600px] w-full"
             />

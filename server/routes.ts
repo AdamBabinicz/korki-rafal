@@ -275,6 +275,23 @@ export async function registerRoutes(
     }
   });
 
+  // NOWY ENDPOINT: PATCH dla szablonu tygodniowego
+  app.patch("/api/weekly-schedule/:id", async (req, res) => {
+    const user = req.user as User;
+    if (!req.isAuthenticated() || user.role !== "admin") {
+      return res.status(403).send("Unauthorized");
+    }
+    try {
+      const id = parseInt(req.params.id);
+      const input = insertWeeklyScheduleSchema.partial().parse(req.body);
+      const updated = await storage.updateWeeklyScheduleItem(id, input);
+      res.json(updated);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to update template item" });
+    }
+  });
+
   app.delete("/api/weekly-schedule/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -433,24 +450,15 @@ export async function registerRoutes(
         for (const item of dayTemplates) {
           const [hours, minutes] = item.startTime.split(":").map(Number);
 
-          // 1. Tworzymy "naiwną" datę w czasie serwera (UTC)
           let slotStart = new Date(currentDay);
           slotStart.setHours(hours, minutes, 0, 0);
 
-          // 2. Sprawdzamy, która to godzina w Warszawie (bo tam chcemy mieć 8:30)
           const { h: plH, m: plM } = getWarsawHourMinute(slotStart);
-
-          // 3. Obliczamy różnicę między tym co wyszło, a tym co chcemy
           const actualMinutes = plH * 60 + plM;
           const desiredMinutes = hours * 60 + minutes;
           let diff = actualMinutes - desiredMinutes;
-
-          // Obsługa przeskoku doby (np. północ)
           if (diff > 720) diff -= 1440;
           if (diff < -720) diff += 1440;
-
-          // 4. Korygujemy datę o tę różnicę
-          // Jeśli w Warszawie jest 9:30, a chcieliśmy 8:30, to cofamy o 60 min.
           slotStart = addMinutes(slotStart, -diff);
 
           const timeKey = slotStart.getTime().toString();

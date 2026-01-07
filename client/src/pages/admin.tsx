@@ -237,6 +237,25 @@ export default function AdminPanel() {
     },
   });
 
+  const updateWeeklyItemMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: any }) => {
+      const res = await apiRequest("PATCH", `/api/weekly-schedule/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/weekly-schedule"] });
+      toast({ title: "Zaktualizowano szablon" });
+      setEditingTemplateItem(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Błąd",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteSlotMutation = useMutation({
     mutationFn: async ({ id, date }: { id: number; date: Date }) => {
       await apiRequest("DELETE", `/api/slots/${id}`);
@@ -390,10 +409,14 @@ export default function AdminPanel() {
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
+  const [editingTemplateItem, setEditingTemplateItem] =
+    useState<WeeklySchedule | null>(null);
 
-  // NOWE STANY DO AUTOMATYCZNEGO PRZELICZANIA CENY W EDYCJI
   const [editFormDuration, setEditFormDuration] = useState(60);
   const [editFormPrice, setEditFormPrice] = useState(80);
+
+  const [tplFormDuration, setTplFormDuration] = useState(60);
+  const [tplFormPrice, setTplFormPrice] = useState(80);
 
   const [newSlotData, setNewSlotData] = useState<
     Partial<InsertSlot> & { duration: number }
@@ -435,7 +458,6 @@ export default function AdminPanel() {
     }
   }, [user]);
 
-  // Efekt do inicjalizacji formularza edycji slotu
   useEffect(() => {
     if (editingSlot) {
       const duration = differenceInMinutes(
@@ -446,6 +468,13 @@ export default function AdminPanel() {
       setEditFormPrice(editingSlot.price || 80);
     }
   }, [editingSlot]);
+
+  useEffect(() => {
+    if (editingTemplateItem) {
+      setTplFormDuration(editingTemplateItem.durationMinutes);
+      setTplFormPrice(editingTemplateItem.price || 80);
+    }
+  }, [editingTemplateItem]);
 
   const nextWeek = () => setCurrentWeekStart((d) => addWeeks(d, 1));
   const prevWeek = () => setCurrentWeekStart((d) => subWeeks(d, 1));
@@ -1177,22 +1206,185 @@ export default function AdminPanel() {
                               {item.price} PLN
                             </div>
 
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10"
-                              onClick={() =>
-                                deleteWeeklyItemMutation.mutate(item.id)
-                              }
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-primary hover:bg-primary/10"
+                                onClick={() => setEditingTemplateItem(item)}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-destructive hover:bg-destructive/10"
+                                onClick={() =>
+                                  deleteWeeklyItemMutation.mutate(item.id)
+                                }
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                         );
                       })}
                   </div>
                 ))}
               </div>
+
+              {/* MODAL EDYCJI ELEMENTU SZABLONU */}
+              <Dialog
+                open={!!editingTemplateItem}
+                onOpenChange={(open) => !open && setEditingTemplateItem(null)}
+              >
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edytuj element szablonu</DialogTitle>
+                    <DialogDescription>
+                      Zmiany wpłyną tylko na przyszłe generowania grafiku.
+                    </DialogDescription>
+                  </DialogHeader>
+                  {editingTemplateItem && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const dayOfWeek = parseInt(
+                          formData.get("dayOfWeek") as string
+                        );
+                        const startTime = formData.get("startTime") as string;
+                        const studentIdRaw = formData.get(
+                          "studentId"
+                        ) as string;
+
+                        const studentId =
+                          studentIdRaw && studentIdRaw !== "none"
+                            ? parseInt(studentIdRaw)
+                            : null;
+
+                        // Używamy stanów formularza dla ceny i czasu trwania
+                        const durationMinutes = tplFormDuration;
+                        const price = tplFormPrice;
+
+                        updateWeeklyItemMutation.mutate({
+                          id: editingTemplateItem.id,
+                          data: {
+                            dayOfWeek,
+                            startTime,
+                            durationMinutes,
+                            price,
+                            studentId,
+                          },
+                        });
+                      }}
+                      className="space-y-4 py-4"
+                    >
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>Dzień tygodnia</Label>
+                          <Select
+                            name="dayOfWeek"
+                            defaultValue={editingTemplateItem.dayOfWeek.toString()}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">
+                                {t("admin.days.1")}
+                              </SelectItem>
+                              <SelectItem value="2">
+                                {t("admin.days.2")}
+                              </SelectItem>
+                              <SelectItem value="3">
+                                {t("admin.days.3")}
+                              </SelectItem>
+                              <SelectItem value="4">
+                                {t("admin.days.4")}
+                              </SelectItem>
+                              <SelectItem value="5">
+                                {t("admin.days.5")}
+                              </SelectItem>
+                              <SelectItem value="6">
+                                {t("admin.days.6")}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Godzina</Label>
+                          <Input
+                            name="startTime"
+                            type="time"
+                            defaultValue={editingTemplateItem.startTime}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                          <Label>Czas trwania (min)</Label>
+                          <Input
+                            name="durationMinutes"
+                            type="number"
+                            value={tplFormDuration}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 0;
+                              setTplFormDuration(val);
+                              const calculatedPrice = Math.round(
+                                (val / 60) * 80
+                              );
+                              setTplFormPrice(calculatedPrice);
+                            }}
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label>Cena (PLN)</Label>
+                          <Input
+                            name="price"
+                            type="number"
+                            value={tplFormPrice}
+                            onChange={(e) =>
+                              setTplFormPrice(parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Uczeń (stały)</Label>
+                        <Select
+                          name="studentId"
+                          defaultValue={
+                            editingTemplateItem.studentId?.toString() || "none"
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              -- Wolny termin --
+                            </SelectItem>
+                            {users
+                              ?.filter((u) => u.role === "student")
+                              .map((u) => (
+                                <SelectItem key={u.id} value={u.id.toString()}>
+                                  {u.name}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <DialogFooter>
+                        <Button type="submit">Zapisz zmiany</Button>
+                      </DialogFooter>
+                    </form>
+                  )}
+                </DialogContent>
+              </Dialog>
             </CardContent>
           </Card>
         </TabsContent>
