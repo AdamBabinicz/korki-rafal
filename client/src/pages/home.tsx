@@ -29,21 +29,27 @@ export default function HomePage() {
 
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/register">
-                <Button
-                  size="lg"
-                  className="text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer"
+                <a
+                  aria-label={t("hero.cta") + " - Zarejestruj się w MathMentor"}
                 >
-                  {t("hero.cta")}
-                </Button>
+                  <Button
+                    size="lg"
+                    className="text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer w-full sm:w-auto"
+                  >
+                    {t("hero.cta")}
+                  </Button>
+                </a>
               </Link>
               <Link href="/login">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="text-lg px-8 h-14 border-primary text-primary hover:bg-primary/5 cursor-pointer"
-                >
-                  {t("nav.login")}
-                </Button>
+                <a aria-label={t("nav.login") + " - Zaloguj się do panelu"}>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="text-lg px-8 h-14 border-primary text-primary hover:bg-primary/5 cursor-pointer w-full sm:w-auto"
+                  >
+                    {t("nav.login")}
+                  </Button>
+                </a>
               </Link>
             </div>
 
@@ -95,7 +101,7 @@ export default function HomePage() {
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-orange-500/20 rounded-3xl blur-2xl transform rotate-6 scale-95" />
             <img
               src="/rafalp.avif"
-              alt="Math Abstract"
+              alt="Rafał Podymniak - Korepetytor matematyki"
               className="relative rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 object-cover h-[350px] lg:h-[600px] w-full"
             />
           </div>
