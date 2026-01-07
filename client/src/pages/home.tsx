@@ -31,30 +31,31 @@ export default function HomePage() {
               {t("hero.subtitle")}
             </p>
 
-            {/* POPRAWIONE KOLORY PRZYCISKÓW DLA LEPSZEGO KONTRASTU */}
+            {/* POPRAWIONA SEKCJA PRZYCISKÓW (Link z wouter + a) */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/register"
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  // Zmiana z orange-500 na orange-600 dla lepszego kontrastu z białym tekstem
-                  "text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-600 hover:bg-orange-700 text-white font-bold cursor-pointer w-full sm:w-auto flex items-center justify-center"
-                )}
-                aria-label={t("hero.cta") + " - Zarejestruj się w MathMentor"}
-              >
-                {t("hero.cta")}
+              <Link href="/register">
+                <a
+                  className={cn(
+                    buttonVariants({ size: "lg" }),
+                    // Używamy orange-600 dla kontrastu (min. 4.5:1)
+                    "text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-600 hover:bg-orange-700 text-white font-bold cursor-pointer w-full sm:w-auto flex items-center justify-center min-w-[44px] min-h-[44px]"
+                  )}
+                  aria-label={t("hero.cta") + " - Zarejestruj się w MathMentor"}
+                >
+                  {t("hero.cta")}
+                </a>
               </Link>
 
-              <Link
-                href="/login"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "lg" }),
-                  // Zmiana hovera i borderu na nieco ciemniejszy
-                  "text-lg px-8 h-14 border-primary text-primary hover:bg-primary/10 cursor-pointer w-full sm:w-auto flex items-center justify-center"
-                )}
-                aria-label={t("nav.login") + " - Zaloguj się do panelu"}
-              >
-                {t("nav.login")}
+              <Link href="/login">
+                <a
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }),
+                    "text-lg px-8 h-14 border-primary text-primary hover:bg-primary/10 cursor-pointer w-full sm:w-auto flex items-center justify-center min-w-[44px] min-h-[44px]"
+                  )}
+                  aria-label={t("nav.login") + " - Zaloguj się do panelu"}
+                >
+                  {t("nav.login")}
+                </a>
               </Link>
             </div>
 
@@ -64,9 +65,10 @@ export default function HomePage() {
                   <CalendarRange className="w-6 h-6 text-green-600 dark:text-green-500 shrink-0" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">
+                  {/* ZMIANA H3 NA H2 DLA POPRAWNEJ STRUKTURY */}
+                  <h2 className="font-bold text-lg">
                     {t("features.scheduling")}
-                  </h3>
+                  </h2>
                   <p className="text-sm text-muted-foreground">
                     {t("features.scheduling_desc")}
                   </p>
@@ -77,9 +79,10 @@ export default function HomePage() {
                   <CheckCircle2 className="w-6 h-6 text-orange-600 dark:text-orange-500 shrink-0" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">
+                  {/* ZMIANA H3 NA H2 */}
+                  <h2 className="font-bold text-lg">
                     {t("features.flexible")}
-                  </h3>
+                  </h2>
                   <p className="text-sm text-muted-foreground">
                     {t("features.flexible_desc")}
                   </p>
@@ -90,9 +93,10 @@ export default function HomePage() {
                   <Sigma className="w-6 h-6 text-blue-600 dark:text-blue-500 shrink-0" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">
+                  {/* ZMIANA H3 NA H2 */}
+                  <h2 className="font-bold text-lg">
                     {t("features.progress")}
-                  </h3>
+                  </h2>
                   <p className="text-sm text-muted-foreground">
                     {t("features.progress_desc")}
                   </p>
