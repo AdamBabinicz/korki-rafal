@@ -8,27 +8,29 @@
   --font-sans: "Inter", sans-serif;
   --font-display: "Outfit", sans-serif;
 
-  /* Soft Light Mode Palette */
-  --background: 210 20% 98%;
-  --foreground: 222 47% 11%;
+  /* Tło i główny tekst */
+  --background: 210 20% 99%; /* Bardzo jasne */
+  --foreground: 222 47% 10%; /* Prawie czarny */
 
   --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
+  --card-foreground: 222 47% 10%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 222 47% 10%;
 
-  /* PRZYCIEMNIONY PRIMARY (Niebieski) - L: 45% dla kontrastu 4.5:1 na białym */
-  --primary: 221 83% 45%;
+  /* PRIMARY - BARDZO CIEMNY NIEBIESKI (dla kontrastu WCAG AAA) */
+  /* Było L:45%, zmieniam na L:30% */
+  --primary: 221 83% 30%;
   --primary-foreground: 210 40% 98%;
 
-  /* PRZYCIEMNIONY SECONDARY (Pomarańcz) */
+  /* SECONDARY - CIEMNY POMARAŃCZ */
   --secondary: 24 95% 45%;
   --secondary-foreground: 210 40% 98%;
 
   --muted: 210 40% 96.1%;
-  /* BARDZO CIEMNY SZARY dla muted text */
-  --muted-foreground: 215 25% 35%;
+  /* MUTED TEXT - CIEMNY SZARY */
+  /* Było L:35%, zmieniam na L:30% */
+  --muted-foreground: 215 25% 30%;
 
   --accent: 210 40% 96.1%;
   --accent-foreground: 222 47.4% 11.2%;
@@ -36,15 +38,15 @@
   --destructive: 0 84.2% 60.2%;
   --destructive-foreground: 210 40% 98%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 221 83% 45%;
+  --border: 214 32% 88%; /* Nieco ciemniejszy border */
+  --input: 214 32% 88%;
+  --ring: 221 83% 30%;
 
   --radius: 0.75rem;
 }
 
 .dark {
-  /* Dark Mode Palette - tutaj kolory mogą być jaśniejsze dla kontrastu na czarnym */
+  /* W trybie ciemnym kolory muszą być jasne na ciemnym tle */
   --background: 222 47% 11%;
   --foreground: 210 40% 98%;
 
@@ -54,7 +56,6 @@
   --popover: 222 47% 14%;
   --popover-foreground: 210 40% 98%;
 
-  /* W dark mode primary może być jaśniejszy */
   --primary: 217 91% 60%;
   --primary-foreground: 222 47% 11%;
 
@@ -102,7 +103,7 @@
   }
 
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-orange-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-orange-600;
   }
 }
 
