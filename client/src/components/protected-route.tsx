@@ -1,12 +1,13 @@
 import { useUser } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
 import { Redirect, Route } from "wouter";
-import React from "react";
+import React, { ComponentType } from "react";
 
 type ProtectedRouteProps = {
   path: string;
-  component: () => React.JSX.Element;
-  role?: string; // Dodano opcjonalny parametr role
+  // ZMIANA: Używamy ComponentType<any> zamiast funkcji, aby obsłużyć React.lazy
+  component: ComponentType<any>;
+  role?: string;
 };
 
 export function ProtectedRoute({
