@@ -540,14 +540,24 @@ export default function AdminPanel() {
         <TabsContent value="calendar" className="space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-lg border shadow-sm">
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="icon" onClick={prevWeek}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={prevWeek}
+                aria-label="Poprzedni tydzień"
+              >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <span className="min-w-[150px] text-center font-medium text-lg">
                 {format(weekStart, "d MMM", { locale: dateLocale })} -{" "}
                 {format(weekEnd, "d MMM", { locale: dateLocale })}
               </span>
-              <Button variant="outline" size="icon" onClick={nextWeek}>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={nextWeek}
+                aria-label="Następny tydzień"
+              >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -845,6 +855,7 @@ export default function AdminPanel() {
                                       className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
                                       onClick={() => setEditingSlot(slot)}
                                       title="Edytuj termin / Przypisz ucznia"
+                                      aria-label="Edytuj termin"
                                     >
                                       <Pencil className="h-3 w-3" />
                                     </Button>
@@ -865,6 +876,7 @@ export default function AdminPanel() {
                                         }
                                       }}
                                       title="Odwołaj rezerwację (zwolnij termin)"
+                                      aria-label="Odwołaj rezerwację"
                                     >
                                       <XCircle className="h-3 w-3" />
                                     </Button>
@@ -886,6 +898,7 @@ export default function AdminPanel() {
                                       }
                                     }}
                                     title="Usuń termin z grafiku"
+                                    aria-label="Usuń termin"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -1212,6 +1225,7 @@ export default function AdminPanel() {
                                 size="icon"
                                 className="h-6 w-6 text-primary hover:bg-primary/10"
                                 onClick={() => setEditingTemplateItem(item)}
+                                aria-label="Edytuj element szablonu"
                               >
                                 <Pencil className="h-3 w-3" />
                               </Button>
@@ -1222,6 +1236,7 @@ export default function AdminPanel() {
                                 onClick={() =>
                                   deleteWeeklyItemMutation.mutate(item.id)
                                 }
+                                aria-label="Usuń element szablonu"
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
@@ -1560,6 +1575,7 @@ export default function AdminPanel() {
                                       setEditingStudentId(student.id)
                                     }
                                     title={t("admin.edit")}
+                                    aria-label="Edytuj ucznia"
                                   >
                                     <Pencil className="h-4 w-4" />
                                   </Button>
@@ -1724,6 +1740,7 @@ export default function AdminPanel() {
                                   }
                                 }}
                                 title={t("admin.delete")}
+                                aria-label="Usuń ucznia"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>

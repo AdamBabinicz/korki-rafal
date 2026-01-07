@@ -3,7 +3,7 @@ import { useUser, useLogout } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { LogOut, Sun, Moon, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useTheme } from "@/hooks/use-theme"; // Importujemy globalny hook
+import { useTheme } from "@/hooks/use-theme";
 
 export function NavBar() {
   const { data: user } = useUser();
@@ -11,7 +11,6 @@ export function NavBar() {
   const [location] = useLocation();
   const { t, i18n } = useTranslation();
 
-  // Używamy globalnego stanu zamiast lokalnego useThemeToggle
   const { theme, setTheme } = useTheme();
 
   const toggleLanguage = () => {
@@ -19,8 +18,6 @@ export function NavBar() {
   };
 
   const toggleTheme = () => {
-    // Jeśli jest 'dark', przełącz na 'light'.
-    // W każdym innym przypadku (czyli 'light' lub 'system') przełącz na 'dark'.
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
@@ -71,6 +68,11 @@ export function NavBar() {
                   ? "Switch to English"
                   : "Przełącz na polski"
               }
+              aria-label={
+                i18n.language === "pl"
+                  ? "Switch to English"
+                  : "Przełącz na polski"
+              }
               className="w-10 h-10"
             >
               <span className="text-xs font-bold">
@@ -83,9 +85,9 @@ export function NavBar() {
               size="icon"
               onClick={toggleTheme}
               title={t("common.theme_toggle")}
+              aria-label={t("common.theme_toggle")}
               className="w-10 h-10"
             >
-              {/* Wyświetlamy ikonę w zależności od aktualnego stanu */}
               {theme === "dark" ? (
                 <Sun className="h-5 w-5" />
               ) : (
@@ -99,6 +101,7 @@ export function NavBar() {
                 size="icon"
                 onClick={() => logout()}
                 title={t("nav.logout")}
+                aria-label={t("nav.logout")}
                 className="hover:text-destructive transition-colors w-10 h-10"
               >
                 <LogOut className="w-5 h-5" />
