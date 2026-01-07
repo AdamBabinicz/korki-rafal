@@ -10,6 +10,7 @@ import {
   subWeeks,
   addMinutes,
   isSunday,
+  differenceInMinutes,
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import {
@@ -390,6 +391,10 @@ export default function AdminPanel() {
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
 
+  // NOWE STANY DO AUTOMATYCZNEGO PRZELICZANIA CENY W EDYCJI
+  const [editFormDuration, setEditFormDuration] = useState(60);
+  const [editFormPrice, setEditFormPrice] = useState(80);
+
   const [newSlotData, setNewSlotData] = useState<
     Partial<InsertSlot> & { duration: number }
   >({
@@ -429,6 +434,18 @@ export default function AdminPanel() {
       });
     }
   }, [user]);
+
+  // Efekt do inicjalizacji formularza edycji slotu
+  useEffect(() => {
+    if (editingSlot) {
+      const duration = differenceInMinutes(
+        new Date(editingSlot.endTime),
+        new Date(editingSlot.startTime)
+      );
+      setEditFormDuration(duration);
+      setEditFormPrice(editingSlot.price || 80);
+    }
+  }, [editingSlot]);
 
   const nextWeek = () => setCurrentWeekStart((d) => addWeeks(d, 1));
   const prevWeek = () => setCurrentWeekStart((d) => subWeeks(d, 1));
@@ -888,7 +905,7 @@ export default function AdminPanel() {
                   {editingSlot &&
                     `${format(
                       new Date(editingSlot.startTime),
-                      "EEEE, d MMMM, HH:mm",
+                      "EEEE, d MMMM yyyy",
                       { locale: dateLocale }
                     )}`}
                 </DialogDescription>
@@ -899,13 +916,27 @@ export default function AdminPanel() {
                     e.preventDefault();
                     const formData = new FormData(e.currentTarget);
                     const studentIdRaw = formData.get("studentId") as string;
-                    const priceRaw = formData.get("price") as string;
+                    const timeRaw = formData.get("time") as string;
 
                     const studentId =
                       studentIdRaw && studentIdRaw !== "none"
                         ? parseInt(studentIdRaw)
                         : null;
-                    const price = priceRaw ? parseInt(priceRaw) : undefined;
+
+                    // Stany z formularza (cena i czas trwania są już w editForm...)
+                    const price = editFormPrice;
+                    const duration = editFormDuration;
+
+                    // PRZELICZANIE CZASU
+                    let newStartTime: Date | undefined;
+                    let newEndTime: Date | undefined;
+
+                    if (timeRaw && duration) {
+                      const [hours, minutes] = timeRaw.split(":").map(Number);
+                      newStartTime = new Date(editingSlot.startTime);
+                      newStartTime.setHours(hours, minutes);
+                      newEndTime = addMinutes(newStartTime, duration);
+                    }
 
                     const isBooked = !!studentId;
                     const topic = isBooked ? "Korepetycje" : undefined;
@@ -917,11 +948,42 @@ export default function AdminPanel() {
                         isBooked,
                         price,
                         topic,
+                        startTime: newStartTime,
+                        endTime: newEndTime,
                       },
                     });
                   }}
                   className="space-y-4 py-4"
                 >
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Godzina</Label>
+                      <Input
+                        name="time"
+                        type="time"
+                        defaultValue={format(
+                          new Date(editingSlot.startTime),
+                          "HH:mm"
+                        )}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Czas trwania (min)</Label>
+                      <Input
+                        name="duration"
+                        type="number"
+                        value={editFormDuration}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value) || 0;
+                          setEditFormDuration(val);
+                          // AUTOMATYCZNE PRZELICZANIE CENY (80 PLN / 60 min)
+                          const calculatedPrice = Math.round((val / 60) * 80);
+                          setEditFormPrice(calculatedPrice);
+                        }}
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid gap-2">
                     <Label>Przypisz ucznia</Label>
                     <Select name="studentId">
@@ -947,7 +1009,10 @@ export default function AdminPanel() {
                     <Input
                       name="price"
                       type="number"
-                      defaultValue={editingSlot.price || 80}
+                      value={editFormPrice}
+                      onChange={(e) =>
+                        setEditFormPrice(parseInt(e.target.value) || 0)
+                      }
                     />
                   </div>
                   <DialogFooter>
@@ -957,182 +1022,6 @@ export default function AdminPanel() {
               )}
             </DialogContent>
           </Dialog>
-        </TabsContent>
-
-        <TabsContent value="template" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("admin.template_title")}</CardTitle>
-              <CardDescription>{t("admin.template_desc")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-5 gap-4 items-end mb-6 p-4 bg-muted/30 rounded-lg border">
-                <div>
-                  <Label>{t("admin.day")}</Label>
-                  <Select
-                    value={templateForm.dayOfWeek}
-                    onValueChange={(v) =>
-                      setTemplateForm({ ...templateForm, dayOfWeek: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">{t("admin.days.1")}</SelectItem>
-                      <SelectItem value="2">{t("admin.days.2")}</SelectItem>
-                      <SelectItem value="3">{t("admin.days.3")}</SelectItem>
-                      <SelectItem value="4">{t("admin.days.4")}</SelectItem>
-                      <SelectItem value="5">{t("admin.days.5")}</SelectItem>
-                      <SelectItem value="6">{t("admin.days.6")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>{t("admin.hour")}</Label>
-                  <Input
-                    type="time"
-                    value={templateForm.startTime}
-                    onChange={(e) =>
-                      setTemplateForm({
-                        ...templateForm,
-                        startTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>{t("admin.time")}</Label>
-                  <Input
-                    type="number"
-                    value={templateForm.durationMinutes}
-                    onChange={(e) =>
-                      setTemplateForm({
-                        ...templateForm,
-                        durationMinutes: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>{t("admin.price")}</Label>
-                  <Input
-                    type="number"
-                    value={templateForm.price}
-                    onChange={(e) =>
-                      setTemplateForm({
-                        ...templateForm,
-                        price: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>{t("admin.student")}</Label>
-                  <Select
-                    value={templateForm.studentId}
-                    onValueChange={(v) =>
-                      setTemplateForm({ ...templateForm, studentId: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        {t("admin.student_none")}
-                      </SelectItem>
-                      {users
-                        ?.filter((u) => u.role === "student")
-                        .map((u) => (
-                          <SelectItem key={u.id} value={u.id.toString()}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  className="w-full md:w-auto"
-                  onClick={() => {
-                    createWeeklyItemMutation.mutate({
-                      dayOfWeek: parseInt(templateForm.dayOfWeek),
-                      startTime: templateForm.startTime,
-                      durationMinutes: parseInt(templateForm.durationMinutes),
-                      price: parseInt(templateForm.price), // POPRAWKA: Przekazanie ceny z formularza
-                      studentId:
-                        templateForm.studentId === "none"
-                          ? null
-                          : parseInt(templateForm.studentId),
-                    });
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t("admin.add_btn")}
-                </Button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-                {[1, 2, 3, 4, 5, 6].map((dayNum) => (
-                  <div key={dayNum} className="space-y-3">
-                    <div className="font-bold text-center border-b pb-2 text-primary">
-                      {t(`admin.days.${dayNum}`)}
-                    </div>
-                    {weeklySchedule?.filter((i) => i.dayOfWeek === dayNum)
-                      .length === 0 && (
-                      <div className="text-center text-xs text-muted-foreground py-2">
-                        {t("admin.empty")}
-                      </div>
-                    )}
-                    {weeklySchedule
-                      ?.filter((i) => i.dayOfWeek === dayNum)
-                      .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                      .map((item) => {
-                        const student = users?.find(
-                          (u) => u.id === item.studentId
-                        );
-                        return (
-                          <div
-                            key={item.id}
-                            className="bg-card border rounded p-3 text-sm shadow-sm relative group"
-                          >
-                            <div className="font-bold text-lg">
-                              {item.startTime}
-                            </div>
-                            <div className="text-xs text-muted-foreground mb-2">
-                              {item.durationMinutes} min
-                            </div>
-                            {student ? (
-                              <div className="font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
-                                {student.name}
-                              </div>
-                            ) : (
-                              <div className="text-green-600 dark:text-green-400 font-medium">
-                                Wolne
-                              </div>
-                            )}
-                            <div className="mt-1 text-xs font-semibold">
-                              {item.price} PLN
-                            </div>
-
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10"
-                              onClick={() =>
-                                deleteWeeklyItemMutation.mutate(item.id)
-                              }
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="students" className="space-y-6">
