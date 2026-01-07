@@ -510,9 +510,9 @@ export default function AdminPanel() {
     <div className="mt-16 space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-primary">
+          <h2 className="text-3xl font-bold tracking-tight text-primary">
             {t("admin.title")}
-          </h1>
+          </h2>
           <p className="text-muted-foreground">{t("admin.subtitle")}</p>
         </div>
       </div>

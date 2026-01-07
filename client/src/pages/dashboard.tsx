@@ -160,9 +160,9 @@ export default function DashboardPage() {
     <div className="container mx-auto px-4 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* NAGŁÓWEK */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h2 className="text-3xl font-bold tracking-tight">
           Cześć, {user?.name || user?.username}!
-        </h1>
+        </h2>
         <p className="text-muted-foreground mt-2">
           Miło Cię widzieć z powrotem. Gotowy na matematykę?
         </p>

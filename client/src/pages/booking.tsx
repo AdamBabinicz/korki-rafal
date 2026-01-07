@@ -137,9 +137,9 @@ export default function BookingPage() {
     <div className="container mx-auto px-4 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 pb-6 border-b">
         <div>
-          <h1 className="text-4xl font-bold tracking-tight text-primary">
+          <h2 className="text-4xl font-bold tracking-tight text-primary">
             Zarezerwuj Lekcję
-          </h1>
+          </h2>
           <p className="text-muted-foreground mt-2 text-lg">
             Wybierz termin, który najbardziej Ci odpowiada.
           </p>
