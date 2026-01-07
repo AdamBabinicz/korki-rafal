@@ -11,7 +11,41 @@
       name="description"
       content="Zrozum matematykę z MathMentor! Oferujemy indywidualne podejście, przygotowanie do matury i egzaminu ósmoklasisty. Zarezerwuj termin online już teraz."
     />
-
+    <!-- SCHEMA.ORG JSON-LD (Identity Schema Fix) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "EducationalOrganization",
+        "name": "MathMentor",
+        "alternateName": "Raf-Edu",
+        "url": "https://mathmentor-app.onrender.com/",
+        "logo": "https://mathmentor-app.onrender.com/favicon.png",
+        "image": "https://mathmentor-app.onrender.com/rafalp.avif",
+        "description": "Indywidualne korepetycje z matematyki dopasowane do Twojego tempa nauki. Przygotowanie do matury i egzaminów.",
+        "founder": {
+          "@type": "Person",
+          "name": "Rafał Podymniak"
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "+48 516 283 896",
+          "contactType": "customer service",
+          "email": "rafal.podymniak97@gmail.com",
+          "areaServed": "PL",
+          "availableLanguage": "Polish"
+        },
+        "sameAs": [
+          "https://www.facebook.com/profile.php?id=100094791384674",
+          "https://korepetycje.netlify.app/"
+        ],
+        "offers": {
+          "@type": "Offer",
+          "price": "80.00",
+          "priceCurrency": "PLN",
+          "availability": "https://schema.org/InStock"
+        }
+      }
+    </script>
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pl_PL" />
@@ -74,6 +108,41 @@
     />
   </head>
   <body>
+    <!-- LLM/Bot Static Content Fallback (Rendered Content Fix) -->
+    <!-- Ta sekcja jest niewidoczna dla użytkownika z włączonym JS, ale widoczna dla robotów i LLM -->
+    <noscript>
+      <div style="padding: 20px; font-family: sans-serif; line-height: 1.6">
+        <h1>MathMentor - Zrozum Matematykę</h1>
+        <h2>Indywidualne korepetycje dopasowane do Twojego tempa nauki.</h2>
+        <p>
+          Rafał Podymniak zaprasza na profesjonalne lekcje matematyki i
+          rezerwacje online. Oferujemy:
+        </p>
+        <ul>
+          <li>
+            <strong>Elastyczny Graf:</strong> Wybierz termin, który Ci pasuje z
+            dostępnych slotów.
+          </li>
+          <li>
+            <strong>Śledzenie Postępów:</strong> Dostęp do historii lekcji i
+            materiałów.
+          </li>
+          <li>
+            <strong>Elastyczne odwoływanie:</strong> Anuluj zajęcia do 24 godzin
+            przed ich rozpoczęciem.
+          </li>
+        </ul>
+        <p>
+          Zarezerwuj lekcję już dziś przez nasz system online lub skontaktuj się
+          bezpośrednio:
+        </p>
+        <address>
+          Telefon: +48 516 283 896<br />
+          Email: rafal.podymniak97@gmail.com
+        </address>
+        <p>Copyright © 2026 MathMentor. Designed for Education.</p>
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
