@@ -441,7 +441,7 @@ export default function AdminPanel() {
     const payload: any = {
       startTime: newSlotData.startTime,
       endTime: end,
-      price: newSlotData.price, // Cena brana z inputa (nowość!)
+      price: newSlotData.price,
       isBooked: !!newSlotData.studentId,
       studentId: newSlotData.studentId,
       topic: newSlotData.studentId
@@ -572,36 +572,32 @@ export default function AdminPanel() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label>{t("admin.slot_duration")}</Label>
-                        <Input
-                          type="number"
-                          defaultValue={60}
-                          onChange={(e) =>
-                            setNewSlotData({
-                              ...newSlotData,
-                              duration: parseInt(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
-                      {/* NOWE POLE: CENA */}
-                      <div className="grid gap-2">
-                        <Label>{t("admin.price")}</Label>
-                        <Input
-                          type="number"
-                          defaultValue={80}
-                          onChange={(e) =>
-                            setNewSlotData({
-                              ...newSlotData,
-                              price: parseInt(e.target.value),
-                            })
-                          }
-                        />
-                      </div>
+                    <div className="grid gap-2">
+                      <Label>{t("admin.slot_duration")}</Label>
+                      <Input
+                        type="number"
+                        defaultValue={60}
+                        onChange={(e) =>
+                          setNewSlotData({
+                            ...newSlotData,
+                            duration: parseInt(e.target.value),
+                          })
+                        }
+                      />
                     </div>
-
+                    <div className="grid gap-2">
+                      <Label>{t("admin.price")}</Label>
+                      <Input
+                        type="number"
+                        defaultValue={80}
+                        onChange={(e) =>
+                          setNewSlotData({
+                            ...newSlotData,
+                            price: parseInt(e.target.value),
+                          })
+                        }
+                      />
+                    </div>
                     <div className="grid gap-2">
                       <Label>Uczeń (opcjonalnie)</Label>
                       <Select
@@ -1241,24 +1237,26 @@ export default function AdminPanel() {
               </Dialog>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b">
                     <tr className="text-left">
-                      <th className="p-3 font-medium">{t("admin.table.id")}</th>
+                      <th className="p-3 font-medium hidden md:table-cell">
+                        {t("admin.table.id")}
+                      </th>
                       <th className="p-3 font-medium">
                         {t("admin.table.name")}
                       </th>
                       <th className="p-3 font-medium">
                         {t("admin.table.username")}
                       </th>
-                      <th className="p-3 font-medium">
+                      <th className="p-3 font-medium hidden md:table-cell">
                         {t("admin.table.email")}
                       </th>
-                      <th className="p-3 font-medium">
+                      <th className="p-3 font-medium hidden md:table-cell">
                         {t("admin.table.phone")}
                       </th>
-                      <th className="p-3 font-medium">
+                      <th className="p-3 font-medium hidden md:table-cell">
                         {t("admin.table.admin_notes")}
                       </th>
                       <th className="p-3 font-medium text-right">
@@ -1274,14 +1272,20 @@ export default function AdminPanel() {
                           key={student.id}
                           className="border-b last:border-0 hover:bg-muted/20"
                         >
-                          <td className="p-3">{student.id}</td>
+                          <td className="p-3 hidden md:table-cell">
+                            {student.id}
+                          </td>
                           <td className="p-3 font-medium">{student.name}</td>
                           <td className="p-3 text-muted-foreground">
                             {student.username}
                           </td>
-                          <td className="p-3">{student.email || "-"}</td>
-                          <td className="p-3">{student.phone || "-"}</td>
-                          <td className="p-3">
+                          <td className="p-3 hidden md:table-cell">
+                            {student.email || "-"}
+                          </td>
+                          <td className="p-3 hidden md:table-cell">
+                            {student.phone || "-"}
+                          </td>
+                          <td className="p-3 hidden md:table-cell">
                             <div className="max-w-[200px] truncate opacity-80">
                               {student.adminNotes || "-"}
                             </div>
