@@ -145,12 +145,12 @@ export default function BookingPage() {
           </p>
         </div>
 
-        <div className="flex items-center bg-card rounded-xl border shadow-sm p-1">
+        <div className="flex items-center justify-between w-full lg:w-auto bg-card rounded-xl border shadow-sm p-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={prevWeek}
-            className="h-10 w-10"
+            className="h-10 w-10 shrink-0"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
@@ -160,13 +160,15 @@ export default function BookingPage() {
               <Button
                 variant="ghost"
                 className={cn(
-                  "w-[260px] justify-center font-semibold text-lg h-10 px-4 mx-1",
+                  "flex-1 lg:w-[260px] justify-center font-semibold text-sm sm:text-lg h-10 px-1 sm:px-4 mx-1 whitespace-nowrap overflow-hidden text-ellipsis",
                   !selectedDate && "text-muted-foreground"
                 )}
               >
-                <CalendarDays className="mr-2 h-5 w-5 text-primary" />
-                {format(weekStart, "d MMM", { locale: pl })} -{" "}
-                {format(weekEnd, "d MMM yyyy", { locale: pl })}
+                <CalendarDays className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0 hidden xs:inline" />
+                <span className="truncate">
+                  {format(weekStart, "d MMM", { locale: pl })} -{" "}
+                  {format(weekEnd, "d MMM yyyy", { locale: pl })}
+                </span>
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="center">
@@ -184,7 +186,7 @@ export default function BookingPage() {
             variant="ghost"
             size="icon"
             onClick={nextWeek}
-            className="h-10 w-10"
+            className="h-10 w-10 shrink-0"
           >
             <ChevronRight className="h-5 w-5" />
           </Button>
@@ -197,7 +199,6 @@ export default function BookingPage() {
             <CardTitle>Wybierz dzień</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* POPRAWKA: flex na mobile, grid na desktop, overflow-x-auto */}
             <div className="flex lg:grid lg:grid-cols-7 gap-2 overflow-x-auto pb-4 touch-pan-x snap-x scrollbar-hide">
               {days.map((day) => {
                 const isHoliday = isPublicHoliday(day);
@@ -305,10 +306,10 @@ export default function BookingPage() {
                   <DialogTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full mt-4 border-primary/20 hover:bg-primary/5"
+                      className="w-full mt-4 border-primary/20 hover:bg-primary/5 h-auto whitespace-normal py-3"
                     >
-                      <BellRing className="mr-2 h-4 w-4" />
-                      Powiadom o dostępności
+                      <BellRing className="mr-2 h-4 w-4 flex-shrink-0" />
+                      <span className="text-left">Powiadom o dostępności</span>
                     </Button>
                   </DialogTrigger>
                   <DialogContent>
@@ -431,9 +432,14 @@ export default function BookingPage() {
                       onOpenChange={setIsWaitlistOpen}
                     >
                       <DialogTrigger asChild>
-                        <Button variant="outline" className="w-full">
-                          <BellRing className="mr-2 h-4 w-4" />
-                          Powiadom mnie o dostępności
+                        <Button
+                          variant="outline"
+                          className="w-full h-auto whitespace-normal py-3"
+                        >
+                          <BellRing className="mr-2 h-4 w-4 flex-shrink-0" />
+                          <span className="text-left">
+                            Powiadom mnie o dostępności
+                          </span>
                         </Button>
                       </DialogTrigger>
                       <DialogContent>

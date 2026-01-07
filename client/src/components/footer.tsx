@@ -1,7 +1,14 @@
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, MessageCircle, Globe, Facebook } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  MessageCircle,
+  Globe,
+  Facebook,
+  MessageSquare,
+} from "lucide-react";
 
 export function Footer() {
   const { t } = useTranslation();
@@ -55,6 +62,18 @@ export function Footer() {
               {t("footer.socials")}
             </h3>
             <div className="flex flex-col gap-3">
+              <a
+                href="https://wa.me/48516283896"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 text-muted-foreground hover:text-green-600 dark:hover:text-green-500 transition-colors w-fit"
+                title="Napisz na WhatsApp"
+                aria-label="Napisz wiadomość na WhatsApp (otwiera się w nowej karcie)"
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>WhatsApp</span>
+              </a>
+
               <a
                 href="https://m.me/100094791384674"
                 target="_blank"

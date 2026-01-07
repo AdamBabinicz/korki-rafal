@@ -73,7 +73,6 @@ import type {
 import { useTranslation } from "react-i18next";
 import { useUser } from "@/hooks/use-auth";
 
-// Helper świąt
 const isPublicHoliday = (date: Date) => {
   const dateString = format(date, "MM-dd");
   const year = date.getFullYear();
@@ -104,7 +103,6 @@ export default function AdminPanel() {
 
   const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
 
-  const [date, setDate] = useState<Date>(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
@@ -113,7 +111,6 @@ export default function AdminPanel() {
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   weekEnd.setHours(23, 59, 59, 999);
 
-  // --- TELEGRAM NOTIFICATIONS (RODO COMPLIANT) ---
   const sendTelegramNotification = async (message: string) => {
     const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
     const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
@@ -138,8 +135,7 @@ export default function AdminPanel() {
     }
   };
 
-  // --- QUERY ---
-  const { data: slots, isLoading: slotsLoading } = useQuery<Slot[]>({
+  const { data: slots } = useQuery<Slot[]>({
     queryKey: [
       "/api/slots",
       { start: weekStart.toISOString(), end: weekEnd.toISOString() },
@@ -161,8 +157,6 @@ export default function AdminPanel() {
   const { data: weeklySchedule } = useQuery<WeeklySchedule[]>({
     queryKey: ["/api/weekly-schedule"],
   });
-
-  // --- MUTATIONS ---
 
   const updateProfileMutation = useMutation({
     mutationFn: async (data: { email: string; phone?: string }) => {
@@ -211,6 +205,34 @@ export default function AdminPanel() {
           "notifications.new_slot"
         )}\n\n📅 ${formattedDate}`
       );
+    },
+  });
+
+  const updateSlotMutation = useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: number;
+      data: Partial<InsertSlot>;
+    }) => {
+      const res = await apiRequest("PATCH", `/api/slots/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
+      toast({
+        title: "Zaktualizowano termin",
+        description: "Zmiany zostały zapisane.",
+      });
+      setEditingSlot(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Błąd",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -337,6 +359,13 @@ export default function AdminPanel() {
       toast({ title: "Zaktualizowano dane ucznia" });
       setEditingStudentId(null);
     },
+    onError: (error: Error) => {
+      toast({
+        title: "Błąd zapisu",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const deleteUserMutation = useMutation({
@@ -355,11 +384,11 @@ export default function AdminPanel() {
     },
   });
 
-  // --- STATE ---
   const [isAddSlotOpen, setIsAddSlotOpen] = useState(false);
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
+  const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
 
   const [newSlotData, setNewSlotData] = useState<
     Partial<InsertSlot> & { duration: number }
@@ -401,8 +430,6 @@ export default function AdminPanel() {
     }
   }, [user]);
 
-  // --- HANDLERS ---
-
   const nextWeek = () => setCurrentWeekStart((d) => addWeeks(d, 1));
   const prevWeek = () => setCurrentWeekStart((d) => subWeeks(d, 1));
 
@@ -414,7 +441,7 @@ export default function AdminPanel() {
     const payload: any = {
       startTime: newSlotData.startTime,
       endTime: end,
-      price: newSlotData.price,
+      price: newSlotData.price, // Cena brana z inputa (nowość!)
       isBooked: !!newSlotData.studentId,
       studentId: newSlotData.studentId,
       topic: newSlotData.studentId
@@ -464,7 +491,6 @@ export default function AdminPanel() {
           </TabsTrigger>
         </TabsList>
 
-        {/* 1. KALENDARZ */}
         <TabsContent value="calendar" className="space-y-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-lg border shadow-sm">
             <div className="flex items-center gap-2">
@@ -480,10 +506,10 @@ export default function AdminPanel() {
               </Button>
             </div>
 
-            <div className="flex gap-2 w-full md:w-auto">
+            <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
               <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
                 <DialogTrigger asChild>
-                  <Button className="flex-1 md:flex-none">
+                  <Button className="w-full md:w-auto">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("admin.add_slot_btn")}
                   </Button>
@@ -546,19 +572,36 @@ export default function AdminPanel() {
                       </div>
                     </div>
 
-                    <div className="grid gap-2">
-                      <Label>{t("admin.slot_duration")}</Label>
-                      <Input
-                        type="number"
-                        defaultValue={60}
-                        onChange={(e) =>
-                          setNewSlotData({
-                            ...newSlotData,
-                            duration: parseInt(e.target.value),
-                          })
-                        }
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label>{t("admin.slot_duration")}</Label>
+                        <Input
+                          type="number"
+                          defaultValue={60}
+                          onChange={(e) =>
+                            setNewSlotData({
+                              ...newSlotData,
+                              duration: parseInt(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                      {/* NOWE POLE: CENA */}
+                      <div className="grid gap-2">
+                        <Label>{t("admin.price")}</Label>
+                        <Input
+                          type="number"
+                          defaultValue={80}
+                          onChange={(e) =>
+                            setNewSlotData({
+                              ...newSlotData,
+                              price: parseInt(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
                     </div>
+
                     <div className="grid gap-2">
                       <Label>Uczeń (opcjonalnie)</Label>
                       <Select
@@ -596,7 +639,7 @@ export default function AdminPanel() {
 
               <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="flex-1 md:flex-none">
+                  <Button variant="outline" className="w-full md:w-auto">
                     {t("admin.generate_from_template")}
                   </Button>
                 </DialogTrigger>
@@ -753,6 +796,18 @@ export default function AdminPanel() {
                                   {format(new Date(slot.startTime), "HH:mm")}
                                 </span>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  {!slot.isBooked && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
+                                      onClick={() => setEditingSlot(slot)}
+                                      title="Edytuj termin / Przypisz ucznia"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  )}
+
                                   {slot.isBooked && (
                                     <Button
                                       variant="ghost"
@@ -825,9 +880,89 @@ export default function AdminPanel() {
               );
             })}
           </div>
+
+          <Dialog
+            open={!!editingSlot}
+            onOpenChange={(open) => !open && setEditingSlot(null)}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edycja terminu</DialogTitle>
+                <DialogDescription>
+                  {editingSlot &&
+                    `${format(
+                      new Date(editingSlot.startTime),
+                      "EEEE, d MMMM, HH:mm",
+                      { locale: dateLocale }
+                    )}`}
+                </DialogDescription>
+              </DialogHeader>
+              {editingSlot && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const studentIdRaw = formData.get("studentId") as string;
+                    const priceRaw = formData.get("price") as string;
+
+                    const studentId =
+                      studentIdRaw && studentIdRaw !== "none"
+                        ? parseInt(studentIdRaw)
+                        : null;
+                    const price = priceRaw ? parseInt(priceRaw) : undefined;
+
+                    const isBooked = !!studentId;
+                    const topic = isBooked ? "Korepetycje" : undefined;
+
+                    updateSlotMutation.mutate({
+                      id: editingSlot.id,
+                      data: {
+                        studentId,
+                        isBooked,
+                        price,
+                        topic,
+                      },
+                    });
+                  }}
+                  className="space-y-4 py-4"
+                >
+                  <div className="grid gap-2">
+                    <Label>Przypisz ucznia</Label>
+                    <Select name="studentId">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Wybierz ucznia..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          -- Brak (Wolny termin) --
+                        </SelectItem>
+                        {users
+                          ?.filter((u) => u.role === "student")
+                          .map((u) => (
+                            <SelectItem key={u.id} value={u.id.toString()}>
+                              {u.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Cena (opcjonalnie)</Label>
+                    <Input
+                      name="price"
+                      type="number"
+                      defaultValue={editingSlot.price || 80}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit">Zapisz zmiany</Button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
-        {/* 2. SZABLON */}
         <TabsContent value="template" className="space-y-6">
           <Card>
             <CardHeader>
@@ -928,7 +1063,7 @@ export default function AdminPanel() {
                       dayOfWeek: parseInt(templateForm.dayOfWeek),
                       startTime: templateForm.startTime,
                       durationMinutes: parseInt(templateForm.durationMinutes),
-                      price: parseInt(templateForm.price),
+                      price: parseInt(templateForm.price), // POPRAWKA: Przekazanie ceny z formularza
                       studentId:
                         templateForm.studentId === "none"
                           ? null
@@ -1004,7 +1139,6 @@ export default function AdminPanel() {
           </Card>
         </TabsContent>
 
-        {/* 3. UCZNIOWIE */}
         <TabsContent value="students" className="space-y-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1034,13 +1168,17 @@ export default function AdminPanel() {
                       <Input
                         value={newStudent.name || ""}
                         onChange={(e) =>
-                          setNewStudent({ ...newStudent, name: e.target.value })
+                          setNewStudent({
+                            ...newStudent,
+                            name: e.target.value,
+                          })
                         }
                       />
                     </div>
                     <div className="grid gap-2">
                       <Label>{t("auth.username")}</Label>
                       <Input
+                        autoComplete="username"
                         value={newStudent.username || ""}
                         onChange={(e) =>
                           setNewStudent({
@@ -1053,6 +1191,7 @@ export default function AdminPanel() {
                     <div className="grid gap-2">
                       <Label>{t("auth.password")}</Label>
                       <Input
+                        autoComplete="new-password"
                         type="password"
                         value={newStudent.password || ""}
                         onChange={(e) =>
@@ -1173,6 +1312,9 @@ export default function AdminPanel() {
                                       {t("admin.edit_student_title")}:{" "}
                                       {student.name}
                                     </DialogTitle>
+                                    <DialogDescription>
+                                      Edytuj szczegóły konta ucznia.
+                                    </DialogDescription>
                                   </DialogHeader>
                                   <form
                                     onSubmit={(e) => {
@@ -1180,16 +1322,59 @@ export default function AdminPanel() {
                                       const formData = new FormData(
                                         e.currentTarget
                                       );
-                                      const data: any = Object.fromEntries(
+                                      const rawData: any = Object.fromEntries(
                                         formData.entries()
                                       );
-                                      if (data.defaultPrice)
-                                        data.defaultPrice = parseInt(
-                                          data.defaultPrice
+
+                                      // === PANCERNA WALIDACJA 3.0 (HYBRYDA) ===
+                                      const cleanData: any = {};
+
+                                      // 1. Nazwa (wymagana)
+                                      if (rawData.name)
+                                        cleanData.name = rawData.name.trim();
+
+                                      // 2. Opcjonalne Stringi
+                                      const textFields = [
+                                        "phone",
+                                        "address",
+                                        "adminNotes",
+                                      ];
+                                      textFields.forEach((field) => {
+                                        cleanData[field] = rawData[field]
+                                          ? rawData[field].trim()
+                                          : "";
+                                      });
+
+                                      // 3. Email
+                                      if (
+                                        rawData.email &&
+                                        rawData.email.trim() !== ""
+                                      ) {
+                                        cleanData.email = rawData.email.trim();
+                                      }
+
+                                      // 4. Liczby
+                                      if (
+                                        rawData.defaultPrice &&
+                                        rawData.defaultPrice !== ""
+                                      ) {
+                                        cleanData.defaultPrice = parseInt(
+                                          rawData.defaultPrice
                                         );
+                                      }
+
+                                      // 5. Hasło
+                                      if (
+                                        rawData.password &&
+                                        rawData.password.trim() !== ""
+                                      ) {
+                                        cleanData.password =
+                                          rawData.password.trim();
+                                      }
+
                                       updateUserMutation.mutate({
                                         id: student.id,
-                                        data,
+                                        data: cleanData,
                                       });
                                     }}
                                     className="space-y-4 py-4"
@@ -1207,6 +1392,7 @@ export default function AdminPanel() {
                                           {t("admin.table.username")}
                                         </Label>
                                         <Input
+                                          autoComplete="username"
                                           name="username"
                                           defaultValue={student.username}
                                           readOnly
@@ -1252,6 +1438,7 @@ export default function AdminPanel() {
                                     <div className="space-y-2">
                                       <Label>{t("admin.new_password")}</Label>
                                       <Input
+                                        autoComplete="new-password"
                                         name="password"
                                         type="password"
                                         placeholder="..."
@@ -1305,7 +1492,6 @@ export default function AdminPanel() {
           </Card>
         </TabsContent>
 
-        {/* 4. NOWA ZAKŁADKA: MÓJ PROFIL */}
         <TabsContent value="profile">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
