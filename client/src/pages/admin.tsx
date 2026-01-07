@@ -1507,7 +1507,7 @@ export default function AdminPanel() {
             </CardHeader>
             <CardContent>
               <div className="rounded-md border overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm min-w-[600px]">
                   <thead className="bg-muted/50 border-b">
                     <tr className="text-left">
                       <th className="p-3 font-medium hidden md:table-cell">
@@ -1519,10 +1519,10 @@ export default function AdminPanel() {
                       <th className="p-3 font-medium">
                         {t("admin.table.username")}
                       </th>
-                      <th className="p-3 font-medium hidden md:table-cell">
+                      <th className="p-3 font-medium">
                         {t("admin.table.email")}
                       </th>
-                      <th className="p-3 font-medium hidden md:table-cell">
+                      <th className="p-3 font-medium">
                         {t("admin.table.phone")}
                       </th>
                       <th className="p-3 font-medium hidden md:table-cell">
@@ -1548,12 +1548,8 @@ export default function AdminPanel() {
                           <td className="p-3 text-muted-foreground">
                             {student.username}
                           </td>
-                          <td className="p-3 hidden md:table-cell">
-                            {student.email || "-"}
-                          </td>
-                          <td className="p-3 hidden md:table-cell">
-                            {student.phone || "-"}
-                          </td>
+                          <td className="p-3">{student.email || "-"}</td>
+                          <td className="p-3">{student.phone || "-"}</td>
                           <td className="p-3 hidden md:table-cell">
                             <div className="max-w-[200px] truncate opacity-80">
                               {student.adminNotes || "-"}
