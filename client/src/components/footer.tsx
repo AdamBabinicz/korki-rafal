@@ -141,7 +141,8 @@ export function Footer() {
           <span>
             {displayDate} {t("footer.rights")}
           </span>
-          <span className="font-medium font-mono text-xs opacity-50">
+          {/* USUNIĘTO opacity-50 DLA POPRAWY KONTRASTU */}
+          <span className="font-medium font-mono text-xs text-muted-foreground">
             {t("footer.designed")}
           </span>
         </div>

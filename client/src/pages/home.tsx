@@ -18,9 +18,12 @@ export default function HomePage() {
           {/* Left Column: Text & CTA */}
           <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-700">
             <h1 className="text-5xl lg:text-7xl font-bold font-display leading-tight">
-              Math<span className="text-orange-500">Mentor</span>
+              Math
+              <span className="text-orange-600 dark:text-orange-500">
+                Mentor
+              </span>
               <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-600 text-4xl lg:text-6xl block mt-2">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-blue-700 dark:to-blue-500 text-4xl lg:text-6xl block mt-2">
                 {t("hero.title")}
               </span>
             </h1>
@@ -28,13 +31,14 @@ export default function HomePage() {
               {t("hero.subtitle")}
             </p>
 
-            {/* POPRAWIONA SEKCJA PRZYCISKÓW (Link z wouter renderuje <a>) */}
+            {/* POPRAWIONE KOLORY PRZYCISKÓW DLA LEPSZEGO KONTRASTU */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Link
                 href="/register"
                 className={cn(
                   buttonVariants({ size: "lg" }),
-                  "text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer w-full sm:w-auto flex items-center justify-center"
+                  // Zmiana z orange-500 na orange-600 dla lepszego kontrastu z białym tekstem
+                  "text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-600 hover:bg-orange-700 text-white font-bold cursor-pointer w-full sm:w-auto flex items-center justify-center"
                 )}
                 aria-label={t("hero.cta") + " - Zarejestruj się w MathMentor"}
               >
@@ -45,7 +49,8 @@ export default function HomePage() {
                 href="/login"
                 className={cn(
                   buttonVariants({ variant: "outline", size: "lg" }),
-                  "text-lg px-8 h-14 border-primary text-primary hover:bg-primary/5 cursor-pointer w-full sm:w-auto flex items-center justify-center"
+                  // Zmiana hovera i borderu na nieco ciemniejszy
+                  "text-lg px-8 h-14 border-primary text-primary hover:bg-primary/10 cursor-pointer w-full sm:w-auto flex items-center justify-center"
                 )}
                 aria-label={t("nav.login") + " - Zaloguj się do panelu"}
               >
@@ -56,7 +61,7 @@ export default function HomePage() {
             <div className="pt-8 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-green-500/10 rounded-lg">
-                  <CalendarRange className="w-6 h-6 text-green-500 shrink-0" />
+                  <CalendarRange className="w-6 h-6 text-green-600 dark:text-green-500 shrink-0" />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">
@@ -69,7 +74,7 @@ export default function HomePage() {
               </div>
               <div className="flex items-start gap-3">
                 <div className="p-2 bg-orange-500/10 rounded-lg">
-                  <CheckCircle2 className="w-6 h-6 text-orange-500 shrink-0" />
+                  <CheckCircle2 className="w-6 h-6 text-orange-600 dark:text-orange-500 shrink-0" />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">
@@ -82,7 +87,7 @@ export default function HomePage() {
               </div>
               <div className="flex items-start gap-3 sm:col-span-2">
                 <div className="p-2 bg-blue-500/10 rounded-lg">
-                  <Sigma className="w-6 h-6 text-blue-500 shrink-0" />
+                  <Sigma className="w-6 h-6 text-blue-600 dark:text-blue-500 shrink-0" />
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">
