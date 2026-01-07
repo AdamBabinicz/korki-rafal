@@ -42,7 +42,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-// Helper świąt
 const isPublicHoliday = (date: Date) => {
   const dateString = format(date, "MM-dd");
   const year = date.getFullYear();
@@ -89,7 +88,7 @@ export default function BookingPage() {
   const [waitlistNote, setWaitlistNote] = useState("");
 
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
-  const now = new Date(); // ZMIANA: Pobranie aktualnego czasu do filtracji
+  const now = new Date();
 
   const nextWeek = () => setCurrentWeekStart((date) => addWeeks(date, 1));
   const prevWeek = () => setCurrentWeekStart((date) => subWeeks(date, 1));
@@ -100,13 +99,11 @@ export default function BookingPage() {
     setCurrentWeekStart(startOfWeek(date, { weekStartsOn: 1 }));
   };
 
-  // ZMIANA: Filtrowanie slotów dla wybranego dnia
-  // Dodano warunek: slot.startTime musi być > now (teraz)
   const selectedDaySlots =
     slots?.filter((slot) => {
       const slotTime = new Date(slot.startTime);
       const isDayMatch = isSameDay(slotTime, selectedDate);
-      const isFuture = slotTime > now; // Ukrywamy sloty z przeszłości (np. dzisiaj rano)
+      const isFuture = slotTime > now;
       return isDayMatch && isFuture;
     }) || [];
 
@@ -138,7 +135,6 @@ export default function BookingPage() {
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* NAGŁÓWEK I NAWIGACJA */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 pb-6 border-b">
         <div>
           <h1 className="text-4xl font-bold tracking-tight text-primary">
@@ -149,7 +145,6 @@ export default function BookingPage() {
           </p>
         </div>
 
-        {/* PASEK NAWIGACJI KALENDARZA */}
         <div className="flex items-center bg-card rounded-xl border shadow-sm p-1">
           <Button
             variant="ghost"
@@ -197,19 +192,18 @@ export default function BookingPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* LEWA STRONA: WIDOK TYGODNIA */}
         <Card className="lg:col-span-8 shadow-md border-none ring-1 ring-border/50">
           <CardHeader>
             <CardTitle>Wybierz dzień</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-7 gap-2 min-w-[600px] lg:min-w-0 overflow-x-auto pb-2">
+            {/* POPRAWKA: flex na mobile, grid na desktop, overflow-x-auto */}
+            <div className="flex lg:grid lg:grid-cols-7 gap-2 overflow-x-auto pb-4 touch-pan-x snap-x scrollbar-hide">
               {days.map((day) => {
                 const isHoliday = isPublicHoliday(day);
                 const isSun = isSunday(day);
                 const isFreeDay = isHoliday || isSun;
 
-                // ZMIANA: Filtrowanie również tutaj, aby licznik "wolne" nie pokazywał slotów z rana
                 const daySlots =
                   slots?.filter((s) => {
                     const slotTime = new Date(s.startTime);
@@ -226,12 +220,13 @@ export default function BookingPage() {
                     onClick={() => setSelectedDate(day)}
                     className={`
                       relative flex flex-col items-center p-4 rounded-xl transition-all duration-200 border
+                      min-w-[85px] lg:min-w-0 flex-shrink-0 snap-center
                       ${
                         isSelected
                           ? "bg-primary text-primary-foreground shadow-lg scale-[1.02] border-primary z-10"
                           : `hover:bg-accent hover:text-accent-foreground border-transparent hover:border-border ${
                               isFreeDay
-                                ? "bg-red-50 dark:bg-red-900/10" // TŁO DLA DNI WOLNYCH
+                                ? "bg-red-50 dark:bg-red-900/10"
                                 : "bg-card/50"
                             }`
                       }
@@ -247,14 +242,14 @@ export default function BookingPage() {
                     )}
                     <span
                       className={`text-xs font-semibold uppercase tracking-wider opacity-70 mb-1 ${
-                        isFreeDay && !isSelected ? "text-red-500" : "" // KOLOR TEKSTU DLA WOLNYCH
+                        isFreeDay && !isSelected ? "text-red-500" : ""
                       }`}
                     >
                       {format(day, "EEE", { locale: pl })}
                     </span>
                     <span
                       className={`text-2xl font-bold ${
-                        isFreeDay && !isSelected ? "text-red-600" : "" // KOLOR DATY DLA WOLNYCH
+                        isFreeDay && !isSelected ? "text-red-600" : ""
                       }`}
                     >
                       {format(day, "d")}
@@ -284,7 +279,6 @@ export default function BookingPage() {
           </CardContent>
         </Card>
 
-        {/* PRAWA STRONA: GODZINY */}
         <Card className="lg:col-span-4 h-fit sticky top-24 shadow-lg border-l-4 border-l-primary">
           <CardHeader className="bg-muted/20 pb-4">
             <CardTitle className="flex items-center gap-2 text-xl">
