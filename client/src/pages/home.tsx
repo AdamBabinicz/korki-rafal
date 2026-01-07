@@ -1,7 +1,8 @@
 import { Link } from "wouter";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button"; // Import wariantów stylów
 import { CheckCircle2, Sigma, CalendarRange } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -27,28 +28,29 @@ export default function HomePage() {
               {t("hero.subtitle")}
             </p>
 
+            {/* POPRAWIONA SEKCJA PRZYCISKÓW */}
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/register">
                 <a
+                  className={cn(
+                    buttonVariants({ size: "lg" }), // Styl przycisku
+                    "text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer w-full sm:w-auto flex items-center justify-center"
+                  )}
                   aria-label={t("hero.cta") + " - Zarejestruj się w MathMentor"}
                 >
-                  <Button
-                    size="lg"
-                    className="text-lg px-8 h-14 shadow-xl shadow-primary/20 bg-orange-500 hover:bg-orange-600 text-white font-bold cursor-pointer w-full sm:w-auto"
-                  >
-                    {t("hero.cta")}
-                  </Button>
+                  {t("hero.cta")}
                 </a>
               </Link>
+
               <Link href="/login">
-                <a aria-label={t("nav.login") + " - Zaloguj się do panelu"}>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="text-lg px-8 h-14 border-primary text-primary hover:bg-primary/5 cursor-pointer w-full sm:w-auto"
-                  >
-                    {t("nav.login")}
-                  </Button>
+                <a
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "lg" }), // Styl outline
+                    "text-lg px-8 h-14 border-primary text-primary hover:bg-primary/5 cursor-pointer w-full sm:w-auto flex items-center justify-center"
+                  )}
+                  aria-label={t("nav.login") + " - Zaloguj się do panelu"}
+                >
+                  {t("nav.login")}
                 </a>
               </Link>
             </div>
