@@ -11,17 +11,34 @@
       name="description"
       content="Zrozum matematykę z MathMentor! Oferujemy indywidualne podejście, przygotowanie do matury i egzaminu ósmoklasisty. Zarezerwuj termin online już teraz."
     />
+    <style>
+      .bot-content {
+        padding: 20px;
+        font-family: sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+    </style>
     <!-- SCHEMA.ORG JSON-LD (Identity Schema Fix) -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "EducationalOrganization",
+        "@type": ["EducationalOrganization", "LocalBusiness"],
         "name": "MathMentor",
         "alternateName": "Raf-Edu",
         "url": "https://mathmentor-app.onrender.com/",
         "logo": "https://mathmentor-app.onrender.com/favicon.png",
         "image": "https://mathmentor-app.onrender.com/rafalp.avif",
         "description": "Indywidualne korepetycje z matematyki dopasowane do Twojego tempa nauki. Przygotowanie do matury i egzaminów.",
+
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Polska",
+          "addressCountry": "PL"
+        },
+
         "founder": {
           "@type": "Person",
           "name": "Rafał Podymniak"
@@ -115,7 +132,7 @@
     <!-- LLM/Bot Static Content Fallback (Rendered Content Fix) -->
     <!-- Ta sekcja jest niewidoczna dla użytkownika z włączonym JS, ale widoczna dla robotów i LLM -->
     <noscript>
-      <div style="padding: 20px; font-family: sans-serif; line-height: 1.6">
+      <div class="bot-content">
         <h2>MathMentor - Zrozum Matematykę</h2>
         <h3>Indywidualne korepetycje dopasowane do Twojego tempa nauki.</h3>
         <p>
