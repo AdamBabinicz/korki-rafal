@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation } from "wouter"; // Dodano useLocation
+import { Link, useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -16,10 +16,9 @@ import {
 
 export default function PrivacyPage() {
   const { i18n } = useTranslation();
-  const [location, setLocation] = useLocation(); // Hook do sterowania adresem
+  const [location, setLocation] = useLocation();
   const lang = i18n.language?.startsWith("pl") ? "pl" : "en";
 
-  // --- AUTOMATYCZNA ZMIANA ADRESU URL ---
   useEffect(() => {
     if (lang === "pl" && location === "/privacy") {
       setLocation("/polityka-prywatnosci", { replace: true });
@@ -27,11 +26,11 @@ export default function PrivacyPage() {
       setLocation("/privacy", { replace: true });
     }
   }, [lang, location, setLocation]);
-  // --------------------------------------
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
-      <div className="mb-6">
+    // ZMIANA: Usunięto 'container', dodano 'w-full'
+    <div className="w-full max-w-4xl mx-auto py-4 md:py-8 px-2 md:px-4">
+      <div className="mb-4 md:mb-6">
         <Link href="/">
           <Button
             variant="ghost"
@@ -44,19 +43,20 @@ export default function PrivacyPage() {
       </div>
 
       <Card className="mb-8 shadow-lg">
-        <CardHeader className="text-center bg-muted/20 pb-8">
-          <CardTitle className="text-3xl font-bold flex items-center justify-center gap-3">
-            <ShieldCheck className="h-8 w-8 text-primary" />
+        <CardHeader className="text-center bg-muted/20 pb-6 md:pb-8 px-4">
+          <CardTitle className="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2 md:gap-3">
+            <ShieldCheck className="h-6 w-6 md:h-8 md:w-8 text-primary shrink-0" />
             {lang === "pl" ? "Polityka Prywatności" : "Privacy Policy"}
           </CardTitle>
-          <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+          <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-2xl mx-auto">
             {lang === "pl"
               ? "Dokument określający zasady przetwarzania danych osobowych w systemie MathMentor, zgodnie z RODO (GDPR)."
               : "Document outlining data processing rules within the MathMentor system, compliant with GDPR."}
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="h-[700px] p-6 md:p-8">
+          {/* ZMIANA: Mniejszy padding na mobile */}
+          <ScrollArea className="h-[600px] md:h-[700px] p-4 md:p-8">
             {lang === "pl" ? <PrivacyPL /> : <PrivacyEN />}
           </ScrollArea>
         </CardContent>
@@ -67,9 +67,9 @@ export default function PrivacyPage() {
 
 function PrivacyPL() {
   return (
-    <div className="space-y-8 text-sm text-foreground/80 leading-relaxed">
+    <div className="space-y-6 md:space-y-8 text-sm text-foreground/80 leading-relaxed">
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
           1. Administrator Danych
         </h3>
         <p>
@@ -84,15 +84,15 @@ function PrivacyPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Database className="h-5 w-5 text-primary" /> 2. Zakres i cel
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Database className="h-5 w-5 text-primary shrink-0" /> 2. Zakres i cel
           zbierania danych
         </h3>
         <p className="mb-2">
           Przetwarzamy dane wyłącznie w celu realizacji usługi edukacyjnej
           (korepetycji):
         </p>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-4 space-y-2">
           <li>
             <strong>Dane konta (Wymagane):</strong> Nazwa użytkownika, Adres
             E-mail (niezbędny do logowania, resetowania hasła oraz otrzymywania
@@ -121,8 +121,8 @@ function PrivacyPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Server className="h-5 w-5 text-primary" /> 3. Infrastruktura
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Server className="h-5 w-5 text-primary shrink-0" /> 3. Infrastruktura
           Techniczna i Podpowierzenie
         </h3>
         <p className="mb-2">
@@ -166,9 +166,9 @@ function PrivacyPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <BrainCircuit className="h-5 w-5 text-primary" /> 4. Transparentność
-          AI
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <BrainCircuit className="h-5 w-5 text-primary shrink-0" /> 4.
+          Transparentność AI
         </h3>
         <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900">
           <p>
@@ -188,11 +188,11 @@ function PrivacyPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Cookie className="h-5 w-5 text-primary" /> 5. Pliki Cookies
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Cookie className="h-5 w-5 text-primary shrink-0" /> 5. Pliki Cookies
         </h3>
         <p>Serwis wykorzystuje pliki cookies w dwóch celach:</p>
-        <ul className="list-disc pl-5 mt-2 space-y-1">
+        <ul className="list-disc pl-4 mt-2 space-y-1">
           <li>
             <strong>Techniczne (Niezbędne):</strong> Utrzymanie sesji po
             zalogowaniu (zapisywane w tabeli `session` w bazie danych). Bez nich
@@ -210,11 +210,11 @@ function PrivacyPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3">
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3">
           6. Prawa Użytkownika (RODO)
         </h3>
         <p>Przysługuje Ci prawo do:</p>
-        <ul className="list-disc pl-5 mt-2 space-y-1">
+        <ul className="list-disc pl-4 mt-2 space-y-1">
           <li>Dostępu do swoich danych i ich kopii.</li>
           <li>
             Sprostowania danych (możesz edytować e-mail i telefon samodzielnie w
@@ -236,9 +236,9 @@ function PrivacyPL() {
 
 function PrivacyEN() {
   return (
-    <div className="space-y-8 text-sm text-foreground/80 leading-relaxed">
+    <div className="space-y-6 md:space-y-8 text-sm text-foreground/80 leading-relaxed">
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
           1. Data Controller
         </h3>
         <p>
@@ -252,15 +252,15 @@ function PrivacyEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Database className="h-5 w-5 text-primary" /> 2. Scope and Purpose of
-          Data Collection
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Database className="h-5 w-5 text-primary shrink-0" /> 2. Scope and
+          Purpose of Data Collection
         </h3>
         <p className="mb-2">
           We process data solely for the purpose of providing educational
           services (tutoring):
         </p>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-4 space-y-2">
           <li>
             <strong>Account Data (Required):</strong> Username, Email address
             (essential for login, password reset, and automatic schedule
@@ -286,9 +286,9 @@ function PrivacyEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Server className="h-5 w-5 text-primary" /> 3. Infrastructure & Data
-          Processors
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Server className="h-5 w-5 text-primary shrink-0" /> 3. Infrastructure
+          & Data Processors
         </h3>
         <p className="mb-2">
           Your data is secure thanks to modern cloud infrastructure. We entrust
@@ -330,8 +330,9 @@ function PrivacyEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <BrainCircuit className="h-5 w-5 text-primary" /> 4. AI Transparency
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <BrainCircuit className="h-5 w-5 text-primary shrink-0" /> 4. AI
+          Transparency
         </h3>
         <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900">
           <p>
@@ -351,11 +352,11 @@ function PrivacyEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Cookie className="h-5 w-5 text-primary" /> 5. Cookies
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Cookie className="h-5 w-5 text-primary shrink-0" /> 5. Cookies
         </h3>
         <p>The service uses cookies for two purposes:</p>
-        <ul className="list-disc pl-5 mt-2 space-y-1">
+        <ul className="list-disc pl-4 mt-2 space-y-1">
           <li>
             <strong>Technical (Essential):</strong> Maintaining session state
             after login (stored in the `session` database table). The service
@@ -372,11 +373,11 @@ function PrivacyEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3">
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3">
           6. User Rights (GDPR)
         </h3>
         <p>You have the right to:</p>
-        <ul className="list-disc pl-5 mt-2 space-y-1">
+        <ul className="list-disc pl-4 mt-2 space-y-1">
           <li>Access your data and receive a copy.</li>
           <li>
             Rectify data (you can edit email and phone yourself in the

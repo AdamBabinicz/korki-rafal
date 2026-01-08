@@ -113,6 +113,9 @@ export default function HomePage() {
               src="/rafalp.avif"
               alt="Rafał Podymniak - Korepetytor matematyki"
               className="relative rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 object-cover h-[350px] lg:h-[600px] w-full"
+              // @ts-ignore - Ignorujemy błąd TS, aby użyć poprawnego atrybutu HTML (małe litery)
+              fetchpriority="high"
+              loading="eager"
             />
           </div>
         </div>

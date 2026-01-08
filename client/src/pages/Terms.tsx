@@ -12,7 +12,7 @@ import {
   Copyright,
   Banknote,
   ArrowLeft,
-  MapPin, // Dodano ikonę dla sekcji lokalizacji
+  MapPin,
 } from "lucide-react";
 
 export default function TermsPage() {
@@ -20,7 +20,6 @@ export default function TermsPage() {
   const [location, setLocation] = useLocation();
   const lang = i18n.language?.startsWith("pl") ? "pl" : "en";
 
-  // --- AUTOMATYCZNA ZMIANA ADRESU URL ---
   useEffect(() => {
     if (lang === "pl" && location === "/terms") {
       setLocation("/regulamin", { replace: true });
@@ -28,11 +27,11 @@ export default function TermsPage() {
       setLocation("/terms", { replace: true });
     }
   }, [lang, location, setLocation]);
-  // --------------------------------------
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl animate-in fade-in slide-in-from-bottom-4 duration-700">
-      <div className="mb-6">
+    // ZMIANA: Usunięto 'container', dodano 'w-full' aby wykorzystać pełną szerokość rodzica
+    <div className="w-full max-w-4xl mx-auto py-4 md:py-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="mb-4 md:mb-6">
         <Link href="/">
           <Button
             variant="ghost"
@@ -45,19 +44,20 @@ export default function TermsPage() {
       </div>
 
       <Card className="mb-8 shadow-lg border-primary/10">
-        <CardHeader className="text-center bg-muted/20 pb-8 border-b">
-          <CardTitle className="text-3xl font-bold flex items-center justify-center gap-3">
-            <Scale className="h-8 w-8 text-primary" />
+        <CardHeader className="text-center bg-muted/20 pb-6 md:pb-8 border-b px-4">
+          <CardTitle className="text-2xl md:text-3xl font-bold flex items-center justify-center gap-2 md:gap-3">
+            <Scale className="h-6 w-6 md:h-8 md:w-8 text-primary shrink-0" />
             {lang === "pl" ? "Regulamin Serwisu" : "Terms of Service"}
           </CardTitle>
-          <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">
+          <p className="text-sm md:text-base text-muted-foreground mt-2 max-w-2xl mx-auto">
             {lang === "pl"
               ? "Zasady rezerwacji, płatności i korzystania z platformy MathMentor."
               : "Rules for booking, payments, and using the MathMentor platform."}
           </p>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="h-[700px] p-6 md:p-8">
+          {/* ZMIANA: Mniejszy padding na mobile (p-4) */}
+          <ScrollArea className="h-[600px] md:h-[700px] p-4 md:p-8">
             {lang === "pl" ? <TermsPL /> : <TermsEN />}
           </ScrollArea>
         </CardContent>
@@ -68,9 +68,9 @@ export default function TermsPage() {
 
 function TermsPL() {
   return (
-    <div className="space-y-8 text-sm text-foreground/80 leading-relaxed">
+    <div className="space-y-6 md:space-y-8 text-sm text-foreground/80 leading-relaxed">
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3">
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3">
           1. Postanowienia Ogólne
         </h3>
         <p>
@@ -84,12 +84,12 @@ function TermsPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" /> 2. Zasady Rezerwacji i
-          Anulowania
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Clock className="h-5 w-5 text-primary shrink-0" /> 2. Zasady
+          Rezerwacji i Anulowania
         </h3>
-        <div className="bg-destructive/5 border border-destructive/20 p-4 rounded-lg">
-          <ul className="list-disc pl-5 space-y-2">
+        <div className="bg-destructive/5 border border-destructive/20 p-3 md:p-4 rounded-lg">
+          <ul className="list-disc pl-4 space-y-2">
             <li>
               Uczeń ma prawo zarezerwować dowolny dostępny termin ("Wolny")
               widoczny w Kalendarzu.
@@ -117,10 +117,11 @@ function TermsPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" /> 3. Miejsce i Czas Zajęć
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary shrink-0" /> 3. Miejsce i Czas
+          Zajęć
         </h3>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-4 space-y-2">
           <li>
             Podczas rezerwacji Uczeń wybiera format zajęć:{" "}
             <strong>U korepetytora / Online</strong> lub{" "}
@@ -140,8 +141,8 @@ function TermsPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Banknote className="h-5 w-5 text-primary" /> 4. Płatności
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Banknote className="h-5 w-5 text-primary shrink-0" /> 4. Płatności
         </h3>
         <p>
           System MathMentor służy do ewidencji należności (statusy "Opłacone" /
@@ -155,14 +156,14 @@ function TermsPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Copyright className="h-5 w-5 text-primary" /> 5. Odpowiedzialność i
-          Technologia
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Copyright className="h-5 w-5 text-primary shrink-0" /> 5.
+          Odpowiedzialność i Technologia
         </h3>
         <p className="mb-2">
           Serwis jest dostarczany w modelu "tak jak jest" (as is).
         </p>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-4 space-y-2">
           <li>
             Platforma została wygenerowana przy użyciu{" "}
             <strong>Sztucznej Inteligencji (AI)</strong>. Mimo dołożenia
@@ -180,9 +181,9 @@ function TermsPL() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-primary" /> 6. Postanowienia
-          Końcowe
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-primary shrink-0" /> 6.
+          Postanowienia Końcowe
         </h3>
         <p>
           Administrator zastrzega sobie prawo do zablokowania konta użytkownika,
@@ -197,9 +198,9 @@ function TermsPL() {
 
 function TermsEN() {
   return (
-    <div className="space-y-8 text-sm text-foreground/80 leading-relaxed">
+    <div className="space-y-6 md:space-y-8 text-sm text-foreground/80 leading-relaxed">
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3">
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3">
           1. General Provisions
         </h3>
         <p>
@@ -213,11 +214,12 @@ function TermsEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Clock className="h-5 w-5 text-primary" /> 2. Booking and Cancellation
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Clock className="h-5 w-5 text-primary shrink-0" /> 2. Booking and
+          Cancellation
         </h3>
-        <div className="bg-destructive/5 border border-destructive/20 p-4 rounded-lg">
-          <ul className="list-disc pl-5 space-y-2">
+        <div className="bg-destructive/5 border border-destructive/20 p-3 md:p-4 rounded-lg">
+          <ul className="list-disc pl-4 space-y-2">
             <li>
               The Student has the right to book any available slot ("Available")
               visible in the Calendar.
@@ -246,10 +248,11 @@ function TermsEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-primary" /> 3. Lesson Location & Time
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <MapPin className="h-5 w-5 text-primary shrink-0" /> 3. Lesson
+          Location & Time
         </h3>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-4 space-y-2">
           <li>
             During booking, the Student selects the format:{" "}
             <strong>On-site (Tutor's/Online)</strong> or{" "}
@@ -269,8 +272,8 @@ function TermsEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Banknote className="h-5 w-5 text-primary" /> 4. Payments
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Banknote className="h-5 w-5 text-primary shrink-0" /> 4. Payments
         </h3>
         <p>
           The MathMentor system tracks payment statuses ("Paid" / "Unpaid").
@@ -282,12 +285,12 @@ function TermsEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <Copyright className="h-5 w-5 text-primary" /> 5. Liability and
-          Technology
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <Copyright className="h-5 w-5 text-primary shrink-0" /> 5. Liability
+          and Technology
         </h3>
         <p className="mb-2">The Service is provided on an "as is" basis.</p>
-        <ul className="list-disc pl-5 space-y-2">
+        <ul className="list-disc pl-4 space-y-2">
           <li>
             The Administrator is not liable for technical errors or server
             downtime provided by third-party services.
@@ -302,8 +305,9 @@ function TermsEN() {
       <Separator />
 
       <section>
-        <h3 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-primary" /> 6. Final Provisions
+        <h3 className="text-base md:text-lg font-bold text-foreground mb-2 md:mb-3 flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-primary shrink-0" /> 6. Final
+          Provisions
         </h3>
         <p>
           The Administrator reserves the right to block a user who notoriously

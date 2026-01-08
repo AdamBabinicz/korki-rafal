@@ -82,7 +82,8 @@ export default function BookingPage() {
   const { data: user } = useUser();
   const { t, i18n } = useTranslation();
 
-  const dateLocale = i18n.language === "pl" ? pl : enUS;
+  // POPRAWKA: Sprawdzamy czy język zaczyna się od 'pl' (obsługuje 'pl', 'pl-PL', 'pl-US' itp.)
+  const dateLocale = i18n.language?.toLowerCase().startsWith("pl") ? pl : enUS;
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(
