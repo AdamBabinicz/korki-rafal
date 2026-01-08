@@ -561,7 +561,6 @@ export default function BookingPage() {
 
         {/* --- Dialog Potwierdzenia Rezerwacji --- */}
         <Dialog open={isBookingOpen} onOpenChange={setIsBookingOpen}>
-          {/* DODANO KLASY SCROLLOWANIA: max-h-[90vh] overflow-y-auto */}
           <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto custom-scrollbar">
             <DialogHeader>
               <DialogTitle>{t("booking.confirm_title")}</DialogTitle>

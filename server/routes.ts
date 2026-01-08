@@ -95,14 +95,16 @@ export async function registerRoutes(
       ALTER TABLE slots
       ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;
     `);
-    // Nowa migracja dla location_type
     await db.execute(sql`
       ALTER TABLE slots
       ADD COLUMN IF NOT EXISTS location_type TEXT;
     `);
     console.log("[DB] Struktura tabeli slots jest poprawna.");
   } catch (err) {
-    console.error("[DB] Błąd auto-migracji:", err);
+    console.error(
+      "[DB] Błąd auto-migracji (można zignorować jeśli kolumna istnieje):",
+      err
+    );
   }
   // ----------------------------------------------------
 
@@ -179,26 +181,17 @@ export async function registerRoutes(
     const user = req.user as User;
 
     try {
-      // Zaktualizowany schemat akceptujący hasło
       const updateSchema = z.object({
         email: z.string().email("Nieprawidłowy format adresu e-mail"),
         phone: z.string().optional(),
-        password: z.string().optional(), // Nowe pole
       });
 
-      const { email, phone, password } = updateSchema.parse(req.body);
+      const { email, phone } = updateSchema.parse(req.body);
 
-      const updateData: any = {
+      const updatedUser = await storage.updateUser(user.id, {
         email,
         phone,
-      };
-
-      // Jeśli hasło zostało podane i nie jest puste, haszujemy je
-      if (password && password.trim() !== "") {
-        updateData.password = await hashPassword(password);
-      }
-
-      const updatedUser = await storage.updateUser(user.id, updateData);
+      });
 
       req.login(updatedUser, (err) => {
         if (err) {
@@ -571,7 +564,6 @@ export async function registerRoutes(
       if (!slot) return res.status(404).send("Slot not found");
       if (slot.isBooked) return res.status(409).send("Slot already booked");
 
-      // LOGIKA DOJAZDU: Jeśli 'commute', dodajemy 30 min do czasu zajętości
       const travelBuffer = locationType === "commute" ? 30 : 0;
       const totalOccupiedMinutes = durationMinutes + travelBuffer;
       const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
@@ -582,7 +574,7 @@ export async function registerRoutes(
         .where(
           and(
             gte(slots.startTime, slot.startTime),
-            lt(slots.startTime, newEndTime),
+            lt(slots.startTime, newEndTime), // POPRAWKA: lt zamiast lte
             ne(slots.id, id)
           )
         );
@@ -594,9 +586,9 @@ export async function registerRoutes(
       );
 
       if (isBlockage) {
-        return res.status(409).json({
-          message: "Wybrany czas (z dojazdem) koliduje z inną lekcją.",
-        });
+        return res
+          .status(409)
+          .json({ message: "Wybrany czas nachodzi na inną zajętą lekcję." });
       }
 
       const updated = await storage.updateSlot(id, {
