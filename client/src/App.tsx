@@ -9,25 +9,28 @@ import { Footer } from "@/components/footer";
 import { ScrollToTop } from "@/components/scroll-to-top";
 import { ScrollRestoration } from "@/components/scroll-restoration";
 import { ProtectedRoute } from "@/components/protected-route";
-import { Loader2 } from "lucide-react"; // Ikona do spinnera
+import { Loader2 } from "lucide-react";
 
 // --- Lazy Loading Pages ---
-// Strony są pobierane przez przeglądarkę dopiero wtedy, gdy są potrzebne.
+// Ważne: Importujemy pliki z małej litery, zgodnie z tym co utworzyliśmy wcześniej
 const HomePage = lazy(() => import("@/pages/home"));
 const LoginPage = lazy(() => import("@/pages/login"));
 const RegisterPage = lazy(() => import("@/pages/register"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const AdminPanel = lazy(() => import("@/pages/admin"));
 const BookingPage = lazy(() => import("@/pages/booking"));
+
+// Nowe strony prawne
 const PrivacyPage = lazy(() => import("@/pages/privacy"));
 const TermsPage = lazy(() => import("@/pages/terms"));
+
 const NotFound = lazy(() => import("@/pages/not-found"));
 
-// Komponent ładowania widoczny podczas przechodzenia między stronami
+// Komponent ładowania (Szkielet)
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-[50vh]">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    <div className="flex items-center justify-center min-h-[60vh] w-full">
+      <Loader2 className="h-10 w-10 animate-spin text-primary" />
     </div>
   );
 }
@@ -35,36 +38,33 @@ function PageLoader() {
 function Router() {
   return (
     <div className="min-h-screen flex flex-col bg-background font-sans antialiased">
-      {/* Mechanizm przywracania przewijania */}
       <ScrollRestoration />
-
-      {/* Nawigacja */}
       <NavBar />
 
-      {/* Główny kontener treści */}
       <main className="flex-1 container mx-auto px-4 md:px-8 mt-16 max-w-7xl">
+        {/* Suspense obsługuje ładowanie nowych plików w tle */}
         <Suspense fallback={<PageLoader />}>
           <Switch>
+            {/* Strony Publiczne */}
             <Route path="/" component={HomePage} />
             <Route path="/login" component={LoginPage} />
             <Route path="/register" component={RegisterPage} />
 
-            {/* Legal pages - Public access */}
-            <Route path="/privacy" component={PrivacyPage} />
+            {/* Strony Prawne - MUSZĄ być dostępne bez logowania */}
             <Route path="/terms" component={TermsPage} />
+            <Route path="/privacy" component={PrivacyPage} />
 
-            {/* Protected Routes */}
+            {/* Strony Chronione (wymagają logowania) */}
             <ProtectedRoute path="/dashboard" component={DashboardPage} />
             <ProtectedRoute path="/booking" component={BookingPage} />
             <ProtectedRoute path="/admin" component={AdminPanel} role="admin" />
 
-            {/* Fallback */}
+            {/* Strona 404 - łapie wszystko inne */}
             <Route component={NotFound} />
           </Switch>
         </Suspense>
       </main>
 
-      {/* Elementy globalne interfejsu */}
       <Footer />
       <ScrollToTop />
     </div>

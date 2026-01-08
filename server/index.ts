@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import path from "path";
 
 const app = express();
 const httpServer = createServer(app);
@@ -47,20 +48,30 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // 1. Rejestrujemy API
   await registerRoutes(httpServer, app);
 
+  // 2. Obsługa błędów API
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
     res.status(status).json({ message });
   });
 
+  // 3. Konfiguracja Frontend (Vite / Static)
   if (app.get("env") === "development") {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   } else {
+    // Tryb PRODUKCYJNY (np. Render)
     serveStatic(app);
+
+    // --- POPRAWKA SPA (Single Page Application) ---
+    // Dzięki temu odświeżenie strony na /terms lub /privacy nie wyrzuci błędu 404,
+    // tylko zwróci index.html, a React zajmie się resztą.
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(process.cwd(), "dist", "public", "index.html"));
+    });
   }
 
   const port = parseInt(process.env.PORT || "5000", 10);

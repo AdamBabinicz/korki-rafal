@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 export default function TermsPage() {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
   const lang = i18n.language.startsWith("pl") ? "pl" : "en";
 
   return (

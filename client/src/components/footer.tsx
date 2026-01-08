@@ -118,15 +118,16 @@ export function Footer() {
               {t("footer.info")}
             </h3>
             <div className="flex flex-col gap-3">
+              {/* Używamy komponentu Link z wouter dla szybkiej nawigacji SPA */}
               <Link
                 href="/terms"
-                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit"
+                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer"
               >
                 {t("legal.terms")}
               </Link>
               <Link
                 href="/privacy"
-                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit"
+                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer"
               >
                 {t("legal.privacy")}
               </Link>
@@ -141,7 +142,6 @@ export function Footer() {
           <span>
             {displayDate} {t("footer.rights")}
           </span>
-          {/* USUNIĘTO opacity-50 DLA POPRAWY KONTRASTU */}
           <span className="font-medium font-mono text-xs text-muted-foreground">
             {t("footer.designed")}
           </span>
