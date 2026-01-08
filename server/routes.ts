@@ -6,6 +6,8 @@ import {
   broadcastFreeSlot,
   sendBookingConfirmation,
   sendNewBookingNotificationToAdmin,
+  sendCancellationConfirmation,
+  sendCancellationNotificationToAdmin,
 } from "./services/email";
 import { sendSafeTelegramAlert } from "./services/telegram";
 import {
@@ -15,6 +17,7 @@ import {
   insertWeeklyScheduleSchema,
   generateFromTemplateSchema,
   insertUserSchema,
+  bookSlotSchema,
   type User,
 } from "@shared/schema";
 import { z } from "zod";
@@ -24,14 +27,19 @@ import {
   setMinutes,
   parseISO,
   differenceInHours,
+  differenceInMinutes,
   format,
   getYear,
   getDay,
   addMinutes,
-  differenceInMinutes,
+  isBefore,
+  isAfter,
 } from "date-fns";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
+import { eq, and, gte, lte, lt, ne, sql } from "drizzle-orm";
+import { db } from "./db";
+import { slots } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
 
@@ -79,6 +87,24 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   setupAuth(app);
+
+  // --- AUTOMATYCZNA NAPRAWA BAZY DANYCH (MIGRACJA) ---
+  try {
+    console.log("[DB] Sprawdzanie struktury tabeli slots...");
+    await db.execute(sql`
+      ALTER TABLE slots
+      ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;
+    `);
+    // Nowa migracja dla location_type
+    await db.execute(sql`
+      ALTER TABLE slots
+      ADD COLUMN IF NOT EXISTS location_type TEXT;
+    `);
+    console.log("[DB] Struktura tabeli slots jest poprawna.");
+  } catch (err) {
+    console.error("[DB] Błąd auto-migracji:", err);
+  }
+  // ----------------------------------------------------
 
   // --- UŻYTKOWNICY ---
 
@@ -153,17 +179,26 @@ export async function registerRoutes(
     const user = req.user as User;
 
     try {
+      // Zaktualizowany schemat akceptujący hasło
       const updateSchema = z.object({
         email: z.string().email("Nieprawidłowy format adresu e-mail"),
         phone: z.string().optional(),
+        password: z.string().optional(), // Nowe pole
       });
 
-      const { email, phone } = updateSchema.parse(req.body);
+      const { email, phone, password } = updateSchema.parse(req.body);
 
-      const updatedUser = await storage.updateUser(user.id, {
+      const updateData: any = {
         email,
         phone,
-      });
+      };
+
+      // Jeśli hasło zostało podane i nie jest puste, haszujemy je
+      if (password && password.trim() !== "") {
+        updateData.password = await hashPassword(password);
+      }
+
+      const updatedUser = await storage.updateUser(user.id, updateData);
 
       req.login(updatedUser, (err) => {
         if (err) {
@@ -275,7 +310,6 @@ export async function registerRoutes(
     }
   });
 
-  // NOWY ENDPOINT: PATCH dla szablonu tygodniowego
   app.patch("/api/weekly-schedule/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -523,30 +557,75 @@ export async function registerRoutes(
   });
 
   // --- REZERWACJA / ANULOWANIE ---
-
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
 
     try {
       const id = parseInt(req.params.id);
+      const { topic, durationMinutes, locationType } = bookSlotSchema.parse(
+        req.body
+      );
+
       const slot = await storage.getSlot(id);
       if (!slot) return res.status(404).send("Slot not found");
       if (slot.isBooked) return res.status(409).send("Slot already booked");
 
-      const topic = req.body.topic || "Matematyka";
+      // LOGIKA DOJAZDU: Jeśli 'commute', dodajemy 30 min do czasu zajętości
+      const travelBuffer = locationType === "commute" ? 30 : 0;
+      const totalOccupiedMinutes = durationMinutes + travelBuffer;
+      const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
+
+      const potentialCollisions = await db
+        .select()
+        .from(slots)
+        .where(
+          and(
+            gte(slots.startTime, slot.startTime),
+            lt(slots.startTime, newEndTime),
+            ne(slots.id, id)
+          )
+        );
+
+      const isBlockage = potentialCollisions.some(
+        (s) =>
+          s.isBooked ||
+          (s.startTime < newEndTime && s.endTime > newEndTime && s.isBooked)
+      );
+
+      if (isBlockage) {
+        return res.status(409).json({
+          message: "Wybrany czas (z dojazdem) koliduje z inną lekcją.",
+        });
+      }
 
       const updated = await storage.updateSlot(id, {
         isBooked: true,
         studentId: user.id,
-        topic: topic,
+        topic: topic || "Matematyka",
+        endTime: newEndTime,
+        bookedAt: new Date(),
+        locationType: locationType,
       });
+
+      for (const collision of potentialCollisions) {
+        if (collision.endTime <= newEndTime) {
+          await storage.deleteSlot(collision.id);
+        } else if (
+          collision.startTime < newEndTime &&
+          collision.endTime > newEndTime
+        ) {
+          await storage.updateSlot(collision.id, {
+            startTime: newEndTime,
+          });
+        }
+      }
 
       if (user.email) {
         await sendBookingConfirmation(
           user.email,
           new Date(slot.startTime),
-          topic
+          topic || "Matematyka"
         );
       }
 
@@ -559,7 +638,7 @@ export async function registerRoutes(
             admin.email,
             user.name,
             new Date(slot.startTime),
-            topic
+            topic || "Matematyka"
           );
         }
 
@@ -570,6 +649,9 @@ export async function registerRoutes(
 
       res.json(updated);
     } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.issues[0].message });
+      }
       console.error(err);
       res.status(500).send("Error booking slot");
     }
@@ -588,23 +670,36 @@ export async function registerRoutes(
         return res.status(403).send("Not authorized");
       }
 
+      // --- LOGIKA "GRACE PERIOD" ---
       if (user.role !== "admin") {
+        const now = new Date();
+        const bookedAt = slot.bookedAt ? new Date(slot.bookedAt) : new Date(0);
         const hoursUntilLesson = differenceInHours(
           new Date(slot.startTime),
-          new Date()
+          now
         );
-        if (hoursUntilLesson < 24) {
+        const minutesSinceBooking = differenceInMinutes(now, bookedAt);
+
+        const GRACE_PERIOD_MINUTES = 30;
+
+        if (
+          hoursUntilLesson < 24 &&
+          minutesSinceBooking > GRACE_PERIOD_MINUTES
+        ) {
           return res.status(400).json({
-            message: "Too late to cancel. Contact admin directly.",
+            message: "Too late to cancel (less than 24h before lesson).",
           });
         }
       }
+      // -----------------------------
 
       const updated = await storage.updateSlot(id, {
         isBooked: false,
         studentId: null,
         isPaid: false,
         topic: null,
+        bookedAt: null,
+        locationType: null,
       });
 
       console.log(`[SLOT] Termin ${id} został zwolniony.`);
@@ -625,21 +720,32 @@ export async function registerRoutes(
         const admin = allUsers.find((u) => u.role === "admin");
         const adminEmail = admin?.email || process.env.EMAIL_USER;
 
-        console.log(
-          `[EMAIL] Wysyłanie powiadomień do ${studentEmails.length} uczniów...`
-        );
-
         await broadcastFreeSlot(
           studentEmails,
           new Date(slot.startTime),
-          adminEmail || undefined
+          undefined
         );
 
-        // Wysyłamy powiadomienie na Telegram do korepetytora z właściwym tekstem
         await sendSafeTelegramAlert(
           new Date(slot.startTime),
           "❌ Odwołano rezerwację! Zwolnił się termin."
         );
+
+        if (user.email) {
+          await sendCancellationConfirmation(
+            user.email,
+            new Date(slot.startTime),
+            user.name
+          );
+        }
+
+        if (adminEmail) {
+          await sendCancellationNotificationToAdmin(
+            adminEmail,
+            user.name,
+            new Date(slot.startTime)
+          );
+        }
       } catch (notifyError) {
         console.error(
           "Błąd podczas wysyłania powiadomień (nie blokuje anulowania):",

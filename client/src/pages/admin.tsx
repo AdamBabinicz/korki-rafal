@@ -159,13 +159,20 @@ export default function AdminPanel() {
     queryKey: ["/api/weekly-schedule"],
   });
 
+  // Mutacja profilu ADMINA (w tym zmiana hasła)
   const updateProfileMutation = useMutation({
-    mutationFn: async (data: { email: string; phone?: string }) => {
+    mutationFn: async (data: {
+      email: string;
+      phone?: string;
+      password?: string;
+    }) => {
       const res = await apiRequest("PATCH", "/api/user", data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+      // Czyścimy pole hasła po sukcesie, aby nie wisiało w formularzu
+      setAdminProfileForm((prev) => ({ ...prev, password: "" }));
       toast({
         title: t("dashboard.save_changes"),
         description: "Dane profilu zostały zaktualizowane.",
@@ -447,14 +454,16 @@ export default function AdminPanel() {
   const [adminProfileForm, setAdminProfileForm] = useState({
     email: "",
     phone: "",
+    password: "", // Dodane pole
   });
 
   useEffect(() => {
     if (user) {
-      setAdminProfileForm({
+      setAdminProfileForm((prev) => ({
+        ...prev,
         email: user.email || "",
         phone: user.phone || "",
-      });
+      }));
     }
   }, [user]);
 
@@ -1801,6 +1810,21 @@ export default function AdminPanel() {
                       })
                     }
                     placeholder="+48..."
+                  />
+                </div>
+
+                <div className="space-y-2 pt-2 border-t">
+                  <Label>{t("admin.new_password")}</Label>
+                  <Input
+                    type="password"
+                    value={adminProfileForm.password}
+                    onChange={(e) =>
+                      setAdminProfileForm({
+                        ...adminProfileForm,
+                        password: e.target.value,
+                      })
+                    }
+                    placeholder={t("admin.new_password_placeholder")}
                   />
                 </div>
               </CardContent>

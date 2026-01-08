@@ -32,7 +32,7 @@ export async function sendBookingConfirmation(
     to: to,
     subject: "✅ Potwierdzenie rezerwacji - MathMentor",
     html: `
-      <div style="font-family: Arial, sans-serif; color: #333;">
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #22c55e;">Potwierdzenie Rezerwacji</h2>
         <p>Cześć!</p>
         <p>Twoja lekcja została pomyślnie zarezerwowana.</p>
@@ -72,7 +72,7 @@ export async function sendNewBookingNotificationToAdmin(
     to: adminEmail,
     subject: `📅 Nowa rezerwacja: ${studentName}`,
     html: `
-      <div style="font-family: Arial, sans-serif; color: #333;">
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #3b82f6;">Nowa Rezerwacja w Kalendarzu</h2>
         <p>Uczeń <strong>${studentName}</strong> właśnie zarezerwował termin.</p>
 
@@ -108,7 +108,6 @@ export async function broadcastFreeSlot(
     locale: pl,
   });
 
-  // Lista odbiorców: admin w 'to', uczniowie w 'bcc'
   const recipients = {
     to: adminEmail,
     bcc: bccList,
@@ -119,7 +118,7 @@ export async function broadcastFreeSlot(
     ...recipients,
     subject: "🔔 Zwolnił się termin! - MathMentor",
     html: `
-      <div style="font-family: Arial, sans-serif; color: #333;">
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #f97316;">Wolny termin!</h2>
         <p>Właśnie zwolnił się termin na zajęcia:</p>
         <h3 style="background-color: #fff7ed; color: #c2410c; padding: 15px; border-radius: 8px; border: 1px solid #ffedd5;">
@@ -137,5 +136,87 @@ export async function broadcastFreeSlot(
     );
   } catch (error) {
     console.error("[EMAIL] Błąd broadcastu:", error);
+  }
+}
+
+/**
+ * NOWE: Potwierdzenie anulowania dla ucznia
+ */
+export async function sendCancellationConfirmation(
+  to: string,
+  date: Date,
+  studentName: string
+) {
+  if (!to || !to.includes("@")) return;
+
+  const formattedDate = format(date, "EEEE, d MMMM yyyy 'o godzinie' HH:mm", {
+    locale: pl,
+  });
+
+  const mailOptions = {
+    from: `"MathMentor" <${process.env.EMAIL_USER}>`,
+    to: to,
+    subject: "❌ Potwierdzenie anulowania rezerwacji - MathMentor",
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ef4444;">Anulowano Rezerwację</h2>
+        <p>Cześć ${studentName},</p>
+        <p>Potwierdzam, że Twoja rezerwacja została anulowana.</p>
+
+        <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #fee2e2;">
+          <p style="margin: 0; color: #b91c1c;">📅 <strong>Termin:</strong> ${formattedDate}</p>
+        </div>
+
+        <p>Jeśli to była pomyłka, możesz spróbować zarezerwować termin ponownie (jeśli jest nadal wolny).</p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] Potwierdzenie anulowania wysłane do: ${to}`);
+  } catch (error) {
+    console.error("[EMAIL] Błąd wysyłania potwierdzenia anulowania:", error);
+  }
+}
+
+/**
+ * NOWE: Powiadomienie dla Admina o anulowaniu
+ */
+export async function sendCancellationNotificationToAdmin(
+  adminEmail: string,
+  studentName: string,
+  date: Date
+) {
+  if (!adminEmail || !adminEmail.includes("@")) return;
+
+  const formattedDate = format(date, "EEEE, d MMMM yyyy 'o godzinie' HH:mm", {
+    locale: pl,
+  });
+
+  const mailOptions = {
+    from: `"MathMentor System" <${process.env.EMAIL_USER}>`,
+    to: adminEmail,
+    subject: `⚠️ Anulowana rezerwacja: ${studentName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #ef4444;">Anulowana Rezerwacja</h2>
+        <p>Uczeń <strong>${studentName}</strong> odwołał lekcję.</p>
+
+        <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <p style="margin: 0; color: #b91c1c;">📅 <strong>Kiedy:</strong> ${formattedDate}</p>
+        </div>
+
+        <p>Termin wrócił do puli wolnych slotów.</p>
+        <p><a href="https://mathmentor.pl/admin" style="color: #3b82f6; text-decoration: none;">Panel Admina</a></p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] Info o anulowaniu wysłane do Admina.`);
+  } catch (error) {
+    console.error("[EMAIL] Błąd wysyłania info o anulowaniu do admina:", error);
   }
 }

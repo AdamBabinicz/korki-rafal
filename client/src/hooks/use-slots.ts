@@ -6,6 +6,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 export function useSlots(filters?: { start?: string; end?: string }) {
   return useQuery({
@@ -29,6 +30,7 @@ export function useSlots(filters?: { start?: string; end?: string }) {
 export function useCreateSlot() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (data: InsertSlot) => {
@@ -42,11 +44,14 @@ export function useCreateSlot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
-      toast({ title: "Success", description: "Slot created successfully" });
+      toast({
+        title: t("toasts.success"),
+        description: t("toasts.slot_created"),
+      });
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -57,6 +62,7 @@ export function useCreateSlot() {
 export function useGenerateSlots() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (data: z.infer<typeof generateSlotsSchema>) => {
@@ -70,11 +76,14 @@ export function useGenerateSlots() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
-      toast({ title: "Success", description: `Generated ${data.count} slots` });
+      toast({
+        title: t("toasts.success"),
+        description: t("toasts.generated", { count: data.count }),
+      });
     },
     onError: (error) => {
       toast({
-        title: "Error",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -82,10 +91,10 @@ export function useGenerateSlots() {
   });
 }
 
-// --- NOWY HOOK: Generator z szablonu (dla Admin Panelu) ---
 export function useGenerateSlotsFromTemplate() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (data: { startDate: string; endDate: string }) => {
@@ -104,13 +113,14 @@ export function useGenerateSlotsFromTemplate() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
       toast({
-        title: "Success",
-        description: data.message || "Schedule generated successfully",
+        title: t("toasts.success"),
+        description:
+          data.message || t("toasts.generated", { count: data.count }),
       });
     },
     onError: (error) => {
       toast({
-        title: "Generation Failed",
+        title: t("toasts.generation_failed"),
         description: error.message,
         variant: "destructive",
       });
@@ -121,6 +131,7 @@ export function useGenerateSlotsFromTemplate() {
 export function useUpdateSlot() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async ({
@@ -140,7 +151,10 @@ export function useUpdateSlot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
-      toast({ title: "Success", description: "Slot updated" });
+      toast({
+        title: t("toasts.success"),
+        description: t("toasts.slot_updated"),
+      });
     },
   });
 }
@@ -148,6 +162,7 @@ export function useUpdateSlot() {
 export function useDeleteSlot() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (id: number) => {
@@ -158,30 +173,54 @@ export function useDeleteSlot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
-      toast({ title: "Success", description: "Slot deleted" });
+      toast({
+        title: t("toasts.success"),
+        description: t("toasts.slot_deleted"),
+      });
     },
   });
 }
 
+// Zmodyfikowany hook rezerwacji - dodane locationType
 export function useBookSlot() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (
+      data:
+        | number
+        | { id: number; durationMinutes?: number; locationType?: string }
+    ) => {
+      const id = typeof data === "number" ? data : data.id;
+      const durationMinutes =
+        typeof data === "number" ? 60 : data.durationMinutes || 60;
+      const locationType =
+        typeof data === "number" ? "onsite" : data.locationType || "onsite";
+
       const res = await fetch(`/api/slots/${id}/book`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ durationMinutes, locationType }),
       });
-      if (!res.ok) throw new Error(await res.text());
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || "Booking failed");
+      }
       return (await res.json()) as Slot;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
-      toast({ title: "Booking Confirmed", description: "See you in class!" });
+      toast({
+        title: t("toasts.book_success"),
+        description: t("toasts.book_desc"),
+      });
     },
     onError: (error) => {
       toast({
-        title: "Booking Failed",
+        title: t("toasts.book_failed"),
         description: error.message,
         variant: "destructive",
       });
@@ -192,6 +231,7 @@ export function useBookSlot() {
 export function useCancelSlot() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (id: number) => {
@@ -208,11 +248,14 @@ export function useCancelSlot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
-      toast({ title: "Cancelled", description: "Reservation cancelled." });
+      toast({
+        title: t("toasts.cancel_success"),
+        description: t("toasts.cancel_desc"),
+      });
     },
     onError: (error) => {
       toast({
-        title: "Cancellation Failed",
+        title: t("toasts.cancel_failed"),
         description: error.message,
         variant: "destructive",
       });
@@ -220,10 +263,10 @@ export function useCancelSlot() {
   });
 }
 
-// --- NOWY HOOK: Lista Rezerwowa ---
 export function useAddToWaitlist() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   return useMutation({
     mutationFn: async (data: { date: Date; notes?: string }) => {
@@ -244,13 +287,13 @@ export function useAddToWaitlist() {
     },
     onSuccess: () => {
       toast({
-        title: "Zapisano!",
-        description: "Powiadomimy Cię, gdy zwolni się termin w tym dniu.",
+        title: t("toasts.waitlist_success"),
+        description: t("toasts.waitlist_desc"),
       });
     },
     onError: (error) => {
       toast({
-        title: "Błąd",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });

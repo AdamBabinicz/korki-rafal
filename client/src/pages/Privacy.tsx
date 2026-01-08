@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter"; // Dodano useLocation
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -15,11 +16,21 @@ import {
 
 export default function PrivacyPage() {
   const { i18n } = useTranslation();
-  const lang = i18n.language.startsWith("pl") ? "pl" : "en";
+  const [location, setLocation] = useLocation(); // Hook do sterowania adresem
+  const lang = i18n.language?.startsWith("pl") ? "pl" : "en";
+
+  // --- AUTOMATYCZNA ZMIANA ADRESU URL ---
+  useEffect(() => {
+    if (lang === "pl" && location === "/privacy") {
+      setLocation("/polityka-prywatnosci", { replace: true });
+    } else if (lang === "en" && location === "/polityka-prywatnosci") {
+      setLocation("/privacy", { replace: true });
+    }
+  }, [lang, location, setLocation]);
+  // --------------------------------------
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-4xl">
-      {/* Link powrotny */}
       <div className="mb-6">
         <Link href="/">
           <Button

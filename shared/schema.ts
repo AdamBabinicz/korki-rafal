@@ -13,7 +13,7 @@ import { z } from "zod";
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  email: text("email").notNull(), // Zmiana: email jest teraz wymagany w bazie
+  email: text("email").notNull(),
   password: text("password").notNull(),
   role: text("role").notNull().default("student"),
   name: text("name").notNull(),
@@ -29,8 +29,11 @@ export const slots = pgTable("slots", {
   endTime: timestamp("end_time").notNull(),
   isBooked: boolean("is_booked").default(false).notNull(),
   studentId: integer("student_id").references(() => users.id),
+  bookedAt: timestamp("booked_at"),
   isPaid: boolean("is_paid").default(false).notNull(),
   topic: text("topic"),
+  // NOWE POLE: Typ lokalizacji (onsite / commute)
+  locationType: text("location_type"),
   notes: text("notes"),
   price: integer("price"),
   adminNotes: text("admin_notes"),
@@ -71,13 +74,13 @@ export const insertUserSchema = createInsertSchema(users)
     defaultPrice: true,
   })
   .extend({
-    email: z.string().email("Nieprawidłowy format adresu email"), // Zmiana: walidacja adresu email jest wymagana
+    email: z.string().email("Nieprawidłowy format adresu email"),
   });
 
-// Używamy .partial() dla pól, które mogą nie być przesyłane w formularzu
 export const insertSlotSchema = createInsertSchema(slots, {
   startTime: z.coerce.date(),
   endTime: z.coerce.date(),
+  bookedAt: z.coerce.date().nullable(),
 })
   .omit({
     id: true,
@@ -85,8 +88,10 @@ export const insertSlotSchema = createInsertSchema(slots, {
   .partial({
     studentId: true,
     isBooked: true,
+    bookedAt: true,
     isPaid: true,
     topic: true,
+    locationType: true, // Dodane do inserta
     notes: true,
     price: true,
     adminNotes: true,
@@ -113,6 +118,13 @@ export const generateSlotsSchema = z.object({
 export const generateFromTemplateSchema = z.object({
   startDate: z.string(),
   endDate: z.string(),
+});
+
+// Aktualizacja schematu rezerwacji
+export const bookSlotSchema = z.object({
+  topic: z.string().optional(),
+  durationMinutes: z.number().min(30).max(180).default(60),
+  locationType: z.enum(["onsite", "commute"]).default("onsite"), // Nowe pole w żądaniu
 });
 
 export type User = typeof users.$inferSelect;

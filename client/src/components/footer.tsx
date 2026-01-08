@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"; // <--- Dodano importy Reacta
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
@@ -11,12 +12,31 @@ import {
 } from "lucide-react";
 
 export function Footer() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
-  // Logika daty:
-  // Rok startowy to 2026.
-  // Jeśli jest rok 2026, wyświetli "2026".
-  // Jeśli będzie rok 2027 lub późniejszy, wyświetli "2026 - 2027".
+  // --- NAPRAWA BRAKU ODŚWIEŻANIA ---
+  // Trzymamy aktualny język w stanie lokalnym, żeby wymusić odświeżenie komponentu
+  const [currentLang, setCurrentLang] = useState(i18n.language);
+
+  useEffect(() => {
+    // Funkcja obsługująca zmianę języka
+    const handleLanguageChange = (lng: string) => {
+      setCurrentLang(lng);
+    };
+
+    // Nasłuchujemy na zdarzenie zmiany języka w i18next
+    i18n.on("languageChanged", handleLanguageChange);
+
+    // Sprzątamy po sobie (dobre praktyki Reacta)
+    return () => {
+      i18n.off("languageChanged", handleLanguageChange);
+    };
+  }, [i18n]);
+
+  // Teraz sprawdzamy język na podstawie STANU, który na pewno się zaktualizuje
+  const isPL = currentLang?.startsWith("pl");
+  // ---------------------------------
+
   const startYear = 2026;
   const currentYear = new Date().getFullYear();
   const displayDate =
@@ -68,7 +88,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-muted-foreground hover:text-green-600 dark:hover:text-green-500 transition-colors w-fit"
                 title="Napisz na WhatsApp"
-                aria-label="Napisz wiadomość na WhatsApp (otwiera się w nowej karcie)"
+                aria-label="Napisz wiadomość na WhatsApp"
               >
                 <MessageSquare className="h-4 w-4" />
                 <span>WhatsApp</span>
@@ -80,7 +100,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit"
                 title="Napisz na Messengerze"
-                aria-label="Napisz wiadomość na Messengerze (otwiera się w nowej karcie)"
+                aria-label="Napisz wiadomość na Messengerze"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span>Messenger</span>
@@ -92,7 +112,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit"
                 title="Odwiedź profil na Facebooku"
-                aria-label="Odwiedź profil na Facebooku (otwiera się w nowej karcie)"
+                aria-label="Odwiedź profil na Facebooku"
               >
                 <Facebook className="h-4 w-4" />
                 <span>Facebook</span>
@@ -104,7 +124,7 @@ export function Footer() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit"
                 title="Odwiedź stronę Raf-Edu"
-                aria-label="Odwiedź stronę Raf-Edu (otwiera się w nowej karcie)"
+                aria-label="Odwiedź stronę Raf-Edu"
               >
                 <Globe className="h-4 w-4" />
                 <span>Raf-Edu</span>
@@ -118,15 +138,14 @@ export function Footer() {
               {t("footer.info")}
             </h3>
             <div className="flex flex-col gap-3">
-              {/* Używamy komponentu Link z wouter dla szybkiej nawigacji SPA */}
               <Link
-                href="/terms"
+                href={isPL ? "/regulamin" : "/terms"}
                 className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer"
               >
                 {t("legal.terms")}
               </Link>
               <Link
-                href="/privacy"
+                href={isPL ? "/polityka-prywatnosci" : "/privacy"}
                 className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer"
               >
                 {t("legal.privacy")}
@@ -137,7 +156,6 @@ export function Footer() {
 
         <Separator className="my-6" />
 
-        {/* Dolny pasek z datą */}
         <div className="flex flex-col md:flex-row justify-between items-center text-sm text-muted-foreground gap-2">
           <span>
             {displayDate} {t("footer.rights")}
