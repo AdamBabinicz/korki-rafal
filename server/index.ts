@@ -3,10 +3,39 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
-import fs from "fs"; // <--- 1. IMPORT SYSTEMU PLIKÓW
+import fs from "fs";
 
 const app = express();
 const httpServer = createServer(app);
+
+// --- KONFIGURACJA BEZPIECZEŃSTWA I PRZEKIEROWAŃ (Render/SEO) ---
+app.set("trust proxy", 1);
+
+app.use((req, res, next) => {
+  const host = req.headers.host || "";
+  const protocol = req.headers["x-forwarded-proto"] || req.protocol;
+
+  // 1. HSTS (Nowość: Naprawa błędu z audytu)
+  // Wymusza HTTPS przez 1 rok (31536000 sekund) i obejmuje subdomeny
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=31536000; includeSubDomains; preload"
+  );
+
+  // 2. Przekierowanie www -> bez-www (Canonical SEO)
+  if (host.startsWith("www.")) {
+    const newHost = host.replace("www.", "");
+    return res.redirect(301, `https://${newHost}${req.originalUrl}`);
+  }
+
+  // 3. Wymuszenie HTTPS na produkcji
+  if (process.env.NODE_ENV === "production" && protocol !== "https") {
+    return res.redirect(301, `https://${host}${req.originalUrl}`);
+  }
+
+  next();
+});
+// ---------------------------------------------------------------
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -62,11 +91,8 @@ app.use((req, res, next) => {
   } else {
     serveStatic(app);
 
-    // <--- 2. LOGIKA SZUKANIA PLIKU index.html
     app.get("*", (_req, res) => {
-      // Opcja A: Standardowa (wewnątrz folderu public)
       const pathA = path.join(process.cwd(), "dist", "public", "index.html");
-      // Opcja B: Bezpośrednio w dist (częste w Vite)
       const pathB = path.join(process.cwd(), "dist", "index.html");
 
       if (fs.existsSync(pathA)) {
@@ -74,14 +100,10 @@ app.use((req, res, next) => {
       } else if (fs.existsSync(pathB)) {
         res.sendFile(pathB);
       } else {
-        // Jeśli pliku nie ma nigdzie, wyświetlamy pomocny błąd zamiast "Cannot GET"
         console.error("Błąd SPA: Nie znaleziono index.html");
-        console.error("Szukano w:", pathA);
-        console.error("Szukano w:", pathB);
         res.status(500).send(`
           <h1>Błąd konfiguracji serwera</h1>
           <p>Nie udało się znaleźć pliku <code>index.html</code>.</p>
-          <p>Upewnij się, że aplikacja została poprawnie zbudowana (npm run build).</p>
         `);
       }
     });
