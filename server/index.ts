@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
+import fs from "fs"; // <--- 1. IMPORT SYSTEMU PLIKÓW
 
 const app = express();
 const httpServer = createServer(app);
@@ -39,7 +40,6 @@ app.use((req, res, next) => {
       if (capturedJsonResponse) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
-
       log(logLine);
     }
   });
@@ -48,29 +48,42 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // 1. Rejestrujemy API
   await registerRoutes(httpServer, app);
 
-  // 2. Obsługa błędów API
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
     res.status(status).json({ message });
   });
 
-  // 3. Konfiguracja Frontend (Vite / Static)
   if (app.get("env") === "development") {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   } else {
-    // Tryb PRODUKCYJNY (np. Render)
     serveStatic(app);
 
-    // --- POPRAWKA SPA (Single Page Application) ---
-    // Dzięki temu odświeżenie strony na /terms lub /privacy nie wyrzuci błędu 404,
-    // tylko zwróci index.html, a React zajmie się resztą.
+    // <--- 2. LOGIKA SZUKANIA PLIKU index.html
     app.get("*", (_req, res) => {
-      res.sendFile(path.join(process.cwd(), "dist", "public", "index.html"));
+      // Opcja A: Standardowa (wewnątrz folderu public)
+      const pathA = path.join(process.cwd(), "dist", "public", "index.html");
+      // Opcja B: Bezpośrednio w dist (częste w Vite)
+      const pathB = path.join(process.cwd(), "dist", "index.html");
+
+      if (fs.existsSync(pathA)) {
+        res.sendFile(pathA);
+      } else if (fs.existsSync(pathB)) {
+        res.sendFile(pathB);
+      } else {
+        // Jeśli pliku nie ma nigdzie, wyświetlamy pomocny błąd zamiast "Cannot GET"
+        console.error("Błąd SPA: Nie znaleziono index.html");
+        console.error("Szukano w:", pathA);
+        console.error("Szukano w:", pathB);
+        res.status(500).send(`
+          <h1>Błąd konfiguracji serwera</h1>
+          <p>Nie udało się znaleźć pliku <code>index.html</code>.</p>
+          <p>Upewnij się, że aplikacja została poprawnie zbudowana (npm run build).</p>
+        `);
+      }
     });
   }
 
