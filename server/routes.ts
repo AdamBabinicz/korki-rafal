@@ -8,7 +8,7 @@ import {
   sendNewBookingNotificationToAdmin,
   sendCancellationConfirmation,
   sendCancellationNotificationToAdmin,
-  sendWaitlistNotificationToAdmin, // Nowy import
+  sendWaitlistNotificationToAdmin,
 } from "./services/email";
 import { sendSafeTelegramAlert } from "./services/telegram";
 import {
@@ -36,12 +36,12 @@ import {
   isBefore,
   isAfter,
 } from "date-fns";
-import { pl } from "date-fns/locale"; // Potrzebne do formatowania daty dla Telegrama
+import { pl } from "date-fns/locale";
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
-import { eq, and, gte, lte, lt, ne, sql } from "drizzle-orm";
+import { eq, and, gte, lte, lt, ne, sql, desc } from "drizzle-orm";
 import { db } from "./db";
-import { slots } from "@shared/schema";
+import { slots, waitlist, users } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
 
@@ -93,8 +93,6 @@ export async function registerRoutes(
   // --- AUTOMATYCZNA NAPRAWA BAZY DANYCH (MIGRACJA) ---
   try {
     console.log("[DB] Sprawdzanie struktury tabel...");
-
-    // Slots
     await db.execute(
       sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;`
     );
@@ -104,20 +102,15 @@ export async function registerRoutes(
     await db.execute(
       sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
-
-    // Weekly Schedule
     await db.execute(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';`
     );
     await db.execute(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
-
-    // Waitlist
     await db.execute(
       sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`
     );
-
     console.log("[DB] Struktura tabel jest poprawna.");
   } catch (err) {
     console.error(
@@ -347,6 +340,99 @@ export async function registerRoutes(
     const id = parseInt(req.params.id);
     await storage.deleteWeeklyScheduleItem(id);
     res.sendStatus(204);
+  });
+
+  // --- WAITLIST (ZGŁOSZENIA) ---
+
+  // NOWE: Pobieranie listy oczekujących (z danymi usera)
+  app.get("/api/waitlist", async (req, res) => {
+    const user = req.user as User;
+    if (!req.isAuthenticated() || user.role !== "admin") {
+      return res.status(403).send("Unauthorized");
+    }
+    try {
+      const items = await db
+        .select({
+          id: waitlist.id,
+          date: waitlist.date,
+          note: waitlist.note,
+          userId: waitlist.userId,
+          studentName: users.name,
+          studentPhone: users.phone,
+          studentEmail: users.email,
+        })
+        .from(waitlist)
+        .leftJoin(users, eq(waitlist.userId, users.id))
+        .orderBy(desc(waitlist.date));
+
+      res.json(items);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Failed to fetch waitlist" });
+    }
+  });
+
+  app.post("/api/waitlist", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user as User;
+    try {
+      const input = insertWaitlistSchema.parse({
+        ...req.body,
+        userId: user.id,
+      });
+      const entry = await storage.addToWaitlist(input);
+
+      try {
+        const allUsers = await storage.getAllUsers();
+        const admin = allUsers.find((u) => u.role === "admin");
+        const adminEmail = admin?.email || process.env.EMAIL_USER;
+
+        if (adminEmail) {
+          await sendWaitlistNotificationToAdmin(
+            adminEmail,
+            user.name,
+            new Date(input.date),
+            input.note
+          );
+        }
+
+        const formattedDate = format(
+          new Date(input.date),
+          "EEEE, d MMMM yyyy",
+          { locale: pl }
+        );
+        const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
+        await sendSafeTelegramAlert(
+          new Date(input.date),
+          `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${user.name}</b> zgłasza chęć lekcji.${noteText}`
+        );
+      } catch (error) {
+        console.error("Błąd wysyłania powiadomień waitlist:", error);
+      }
+
+      res.status(201).json(entry);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.issues[0].message });
+      }
+      console.error("[WAITLIST ERROR]", err);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // NOWE: Usuwanie z listy oczekujących (obsłużone zgłoszenie)
+  app.delete("/api/waitlist/:id", async (req, res) => {
+    const user = req.user as User;
+    if (!req.isAuthenticated() || user.role !== "admin") {
+      return res.status(403).send("Unauthorized");
+    }
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(waitlist).where(eq(waitlist.id, id));
+      res.sendStatus(204);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete waitlist entry" });
+    }
   });
 
   // --- GENERATORY ---
@@ -779,56 +865,6 @@ export async function registerRoutes(
     } catch (err) {
       console.error(err);
       res.status(500).send("Error cancelling slot");
-    }
-  });
-
-  app.post("/api/waitlist", async (req, res) => {
-    if (!req.isAuthenticated()) return res.sendStatus(401);
-    const user = req.user as User;
-    try {
-      const input = insertWaitlistSchema.parse({
-        ...req.body,
-        userId: user.id,
-      });
-      const entry = await storage.addToWaitlist(input);
-
-      // --- WYSYŁANIE POWIADOMIEŃ ---
-      try {
-        const allUsers = await storage.getAllUsers();
-        const admin = allUsers.find((u) => u.role === "admin");
-        const adminEmail = admin?.email || process.env.EMAIL_USER;
-
-        if (adminEmail) {
-          await sendWaitlistNotificationToAdmin(
-            adminEmail,
-            user.name,
-            new Date(input.date),
-            input.note
-          );
-        }
-
-        // Telegram notification for waitlist
-        const formattedDate = format(
-          new Date(input.date),
-          "EEEE, d MMMM yyyy",
-          { locale: pl }
-        );
-        const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
-        await sendSafeTelegramAlert(
-          new Date(input.date),
-          `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${user.name}</b> zgłasza chęć lekcji.${noteText}`
-        );
-      } catch (error) {
-        console.error("Błąd wysyłania powiadomień waitlist:", error);
-      }
-
-      res.status(201).json(entry);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({ message: err.issues[0].message });
-      }
-      console.error("[WAITLIST ERROR]", err);
-      res.status(500).json({ message: "Server error" });
     }
   });
 

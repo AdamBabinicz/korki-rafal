@@ -27,6 +27,7 @@ import {
   Pencil,
   XCircle,
   Car,
+  Bell,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -103,7 +104,7 @@ export default function AdminPanel() {
 
   const { data: user } = useUser();
 
-  const dateLocale = i18n.language?.toLowerCase().startsWith("pl") ? pl : enUS;
+  const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
 
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -158,6 +159,14 @@ export default function AdminPanel() {
 
   const { data: weeklySchedule } = useQuery<WeeklySchedule[]>({
     queryKey: ["/api/weekly-schedule"],
+  });
+
+  const { data: waitlist } = useQuery<any[]>({
+    queryKey: ["/api/waitlist"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/waitlist");
+      return res.json();
+    },
   });
 
   const updateProfileMutation = useMutation({
@@ -344,6 +353,16 @@ export default function AdminPanel() {
     },
   });
 
+  const deleteWaitlistMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/waitlist/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/waitlist"] });
+      toast({ title: t("admin.request_deleted") });
+    },
+  });
+
   const createUserMutation = useMutation({
     mutationFn: async (data: InsertUser) => {
       const res = await apiRequest("POST", "/api/users", data);
@@ -418,19 +437,16 @@ export default function AdminPanel() {
   const [editingTemplateItem, setEditingTemplateItem] =
     useState<WeeklySchedule | null>(null);
 
-  // Stany formularza edycji slotu
   const [editFormDuration, setEditFormDuration] = useState(60);
   const [editFormPrice, setEditFormPrice] = useState(80);
   const [editFormLocation, setEditFormLocation] = useState("onsite");
   const [editFormTravel, setEditFormTravel] = useState(0);
 
-  // Stany formularza edycji szablonu
   const [tplFormDuration, setTplFormDuration] = useState(60);
   const [tplFormPrice, setTplFormPrice] = useState(80);
   const [tplFormLocation, setTplFormLocation] = useState("onsite");
   const [tplFormTravel, setTplFormTravel] = useState(0);
 
-  // Stan formularza nowego slotu
   const [newSlotData, setNewSlotData] = useState<
     Partial<InsertSlot> & { duration: number }
   >({
@@ -451,7 +467,6 @@ export default function AdminPanel() {
     defaultPrice: 80,
   });
 
-  // Stan formularza nowego elementu szablonu
   const [templateForm, setTemplateForm] = useState({
     dayOfWeek: "1",
     startTime: "16:00",
@@ -480,9 +495,6 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (editingSlot) {
-      // Obliczamy czas trwania lekcji (nie slotu, slot może mieć travel time)
-      // Jednak w bazie slot.endTime to koniec wszystkiego.
-      // Więc lessonDuration = (endTime - startTime) - travelMinutes
       const totalDuration = differenceInMinutes(
         new Date(editingSlot.endTime),
         new Date(editingSlot.startTime)
@@ -512,7 +524,6 @@ export default function AdminPanel() {
   const handleCreateSlot = () => {
     if (!newSlotData.startTime) return;
 
-    // Obliczamy całkowity czas blokady (lekcja + dojazd)
     const travel =
       newSlotData.locationType === "commute"
         ? newSlotData.travelMinutes || 0
@@ -558,7 +569,7 @@ export default function AdminPanel() {
       </div>
 
       <Tabs defaultValue="calendar" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 lg:w-auto h-auto">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto h-auto">
           <TabsTrigger value="calendar" className="py-2">
             <CalendarIcon className="mr-2 h-4 w-4" />
             {t("admin.tab_calendar")}
@@ -570,6 +581,10 @@ export default function AdminPanel() {
           <TabsTrigger value="students" className="py-2">
             <Users className="mr-2 h-4 w-4" />
             {t("admin.tab_students")}
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="py-2">
+            <Bell className="mr-2 h-4 w-4" />
+            {t("admin.requests_title")}
           </TabsTrigger>
           <TabsTrigger value="profile" className="py-2">
             <UserCog className="mr-2 h-4 w-4" />
@@ -603,7 +618,6 @@ export default function AdminPanel() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-              {/* MODAL NOWY SLOT */}
               <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
                 <DialogTrigger asChild>
                   <Button className="w-full md:w-auto">
@@ -1999,6 +2013,75 @@ export default function AdminPanel() {
                   </tbody>
                 </table>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* NOWA ZAKŁADKA: ZGŁOSZENIA (WAITLIST) */}
+        <TabsContent value="requests" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("admin.requests_title")}</CardTitle>
+              <CardDescription>{t("admin.requests_desc")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {waitlist?.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">
+                  {t("admin.requests_empty")}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {waitlist?.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border rounded-lg bg-card shadow-sm gap-4"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-lg text-primary">
+                            {format(new Date(item.date), "d MMMM yyyy", {
+                              locale: dateLocale,
+                            })}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            (
+                            {format(new Date(item.date), "EEEE", {
+                              locale: dateLocale,
+                            })}
+                            )
+                          </span>
+                        </div>
+                        <div className="font-medium text-lg">
+                          {item.studentName || t("admin.unknown_student")}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {item.studentEmail} •{" "}
+                          {item.studentPhone || t("admin.no_phone")}
+                        </div>
+                        {item.note && (
+                          <div className="mt-2 p-2 bg-muted/50 rounded border-l-2 border-primary/50 text-sm italic">
+                            "{item.note}"
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:bg-destructive/10"
+                        title="Usuń zgłoszenie"
+                        onClick={() => {
+                          if (confirm(t("admin.delete_request_confirm"))) {
+                            deleteWaitlistMutation.mutate(item.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
