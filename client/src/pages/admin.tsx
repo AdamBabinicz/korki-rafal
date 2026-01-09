@@ -159,7 +159,6 @@ export default function AdminPanel() {
     queryKey: ["/api/weekly-schedule"],
   });
 
-  // Mutacja profilu ADMINA (w tym zmiana hasła)
   const updateProfileMutation = useMutation({
     mutationFn: async (data: {
       email: string;
@@ -171,7 +170,6 @@ export default function AdminPanel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      // Czyścimy pole hasła po sukcesie, aby nie wisiało w formularzu
       setAdminProfileForm((prev) => ({ ...prev, password: "" }));
       toast({
         title: t("dashboard.save_changes"),
@@ -454,7 +452,7 @@ export default function AdminPanel() {
   const [adminProfileForm, setAdminProfileForm] = useState({
     email: "",
     phone: "",
-    password: "", // Dodane pole
+    password: "",
   });
 
   useEffect(() => {
@@ -1534,7 +1532,7 @@ export default function AdminPanel() {
                       <th className="p-3 font-medium">
                         {t("admin.table.phone")}
                       </th>
-                      <th className="p-3 font-medium hidden md:table-cell">
+                      <th className="p-3 font-medium">
                         {t("admin.table.admin_notes")}
                       </th>
                       <th className="p-3 font-medium text-right">
@@ -1559,7 +1557,7 @@ export default function AdminPanel() {
                           </td>
                           <td className="p-3">{student.email || "-"}</td>
                           <td className="p-3">{student.phone || "-"}</td>
-                          <td className="p-3 hidden md:table-cell">
+                          <td className="p-3">
                             <div className="max-w-[200px] truncate opacity-80">
                               {student.adminNotes || "-"}
                             </div>
