@@ -62,6 +62,22 @@ function getWarsawHourMinute(date: Date) {
   return { h: h === 24 ? 0 : h, m };
 }
 
+// Funkcja anonimizująca dane dla Telegrama (RODO)
+function anonymizeName(name: string, id: number): string {
+  if (!name) return `Uczeń (ID: ${id})`;
+  const parts = name.trim().split(" ");
+
+  if (parts.length > 1) {
+    // Imię + pierwsza litera nazwiska + ID
+    const firstName = parts[0];
+    const lastInitial = parts[parts.length - 1][0];
+    return `${firstName} ${lastInitial}. (ID: ${id})`;
+  }
+
+  // Tylko imię + ID
+  return `${name} (ID: ${id})`;
+}
+
 const holidayCache = new Map<number, Set<string>>();
 
 async function getPublicHolidays(year: number): Promise<Set<string>> {
@@ -344,7 +360,6 @@ export async function registerRoutes(
 
   // --- WAITLIST (ZGŁOSZENIA) ---
 
-  // NOWE: Pobieranie listy oczekujących (z danymi usera)
   app.get("/api/waitlist", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -387,6 +402,7 @@ export async function registerRoutes(
         const admin = allUsers.find((u) => u.role === "admin");
         const adminEmail = admin?.email || process.env.EMAIL_USER;
 
+        // Email - wysyłamy pełne dane (bezpieczne)
         if (adminEmail) {
           await sendWaitlistNotificationToAdmin(
             adminEmail,
@@ -396,15 +412,18 @@ export async function registerRoutes(
           );
         }
 
+        // Telegram - anonimizacja (RODO)
+        const safeName = anonymizeName(user.name, user.id);
         const formattedDate = format(
           new Date(input.date),
           "EEEE, d MMMM yyyy",
           { locale: pl }
         );
         const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
+
         await sendSafeTelegramAlert(
           new Date(input.date),
-          `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${user.name}</b> zgłasza chęć lekcji.${noteText}`
+          `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${safeName}</b> zgłasza chęć lekcji.${noteText}`
         );
       } catch (error) {
         console.error("Błąd wysyłania powiadomień waitlist:", error);
@@ -420,7 +439,6 @@ export async function registerRoutes(
     }
   });
 
-  // NOWE: Usuwanie z listy oczekujących (obsłużone zgłoszenie)
   app.delete("/api/waitlist/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -751,7 +769,12 @@ export async function registerRoutes(
           );
         }
 
-        await sendSafeTelegramAlert(new Date(slot.startTime));
+        // Telegram - anonimizacja
+        const safeName = anonymizeName(user.name, user.id);
+        await sendSafeTelegramAlert(
+          new Date(slot.startTime),
+          `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`
+        );
       } catch (adminNotifyErr) {
         console.error("Błąd powiadomień dla admina:", adminNotifyErr);
       }
@@ -834,9 +857,11 @@ export async function registerRoutes(
           undefined
         );
 
+        // Telegram - anonimizacja
+        const safeName = anonymizeName(user.name, user.id);
         await sendSafeTelegramAlert(
           new Date(slot.startTime),
-          "❌ Odwołano rezerwację! Zwolnił się termin."
+          `❌ <b>Anulowano rezerwację!</b>\nUczeń: <b>${safeName}</b>\nTermin zwolniony.`
         );
 
         if (user.email) {
