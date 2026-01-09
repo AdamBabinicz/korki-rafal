@@ -32,7 +32,6 @@ import {
   CalendarDays,
   Lock,
   ArrowLeft,
-  XCircle,
   MapPin,
   Car,
 } from "lucide-react";
@@ -82,7 +81,6 @@ export default function BookingPage() {
   const { data: user } = useUser();
   const { t, i18n } = useTranslation();
 
-  // POPRAWKA: Sprawdzamy czy język zaczyna się od 'pl' (obsługuje 'pl', 'pl-PL', 'pl-US' itp.)
   const dateLocale = i18n.language?.toLowerCase().startsWith("pl") ? pl : enUS;
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -142,7 +140,7 @@ export default function BookingPage() {
 
   const handleWaitlistSubmit = () => {
     addToWaitlistMutation.mutate(
-      { date: selectedDate, notes: waitlistNote },
+      { date: selectedDate, note: waitlistNote },
       {
         onSuccess: () => {
           setIsWaitlistOpen(false);
@@ -167,6 +165,7 @@ export default function BookingPage() {
         id: bookingSlot.id,
         durationMinutes: parseInt(bookingDuration),
         locationType,
+        topic: bookingTopic, // TERAZ TEMAT JEST PRZEKAZYWANY POPRAWNIE
       },
       {
         onSuccess: () => setIsBookingOpen(false),
@@ -389,44 +388,6 @@ export default function BookingPage() {
                       : t("booking.no_slots_day")}
                   </p>
                 </div>
-
-                <Dialog open={isWaitlistOpen} onOpenChange={setIsWaitlistOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full mt-4 border-primary/20 hover:bg-primary/5 h-auto whitespace-normal py-3"
-                    >
-                      <BellRing className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <span className="text-left">
-                        {t("booking.notify_btn")}
-                      </span>
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{t("booking.waitlist_title")}</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="notes">{t("booking.note_label")}</Label>
-                        <Input
-                          id="notes"
-                          placeholder={t("booking.note_placeholder")}
-                          value={waitlistNote}
-                          onChange={(e) => setWaitlistNote(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button
-                        onClick={handleWaitlistSubmit}
-                        disabled={addToWaitlistMutation.isPending}
-                      >
-                        {t("booking.save_me")}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
               </div>
             ) : (
               <div className="grid gap-3 max-h-[500px] overflow-y-auto pr-1 custom-scrollbar">
@@ -509,54 +470,48 @@ export default function BookingPage() {
                     </div>
                   );
                 })}
-
-                {!hasFreeSlots && (
-                  <div className="mt-6 pt-6 border-t text-center">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {t("booking.all_taken")}
-                    </p>
-                    <Dialog
-                      open={isWaitlistOpen}
-                      onOpenChange={setIsWaitlistOpen}
-                    >
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full h-auto whitespace-normal py-3"
-                        >
-                          <BellRing className="mr-2 h-4 w-4 flex-shrink-0" />
-                          <span className="text-left">
-                            {t("booking.notify_btn")}
-                          </span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>
-                            {t("booking.waitlist_title")}
-                          </DialogTitle>
-                        </DialogHeader>
-                        <div className="grid gap-4 py-4">
-                          <Input
-                            placeholder={t("booking.note_placeholder")}
-                            value={waitlistNote}
-                            onChange={(e) => setWaitlistNote(e.target.value)}
-                          />
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            onClick={handleWaitlistSubmit}
-                            disabled={addToWaitlistMutation.isPending}
-                          >
-                            {t("booking.save_me")}
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                )}
               </div>
             )}
+
+            {/* ZAWSZE WIDOCZNY PRZYCISK LISTY REZERWOWEJ */}
+            <div className="mt-6 pt-6 border-t text-center">
+              {!hasFreeSlots && selectedDaySlots.length > 0 && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  {t("booking.all_taken")}
+                </p>
+              )}
+              <Dialog open={isWaitlistOpen} onOpenChange={setIsWaitlistOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full h-auto whitespace-normal py-3"
+                  >
+                    <BellRing className="mr-2 h-4 w-4 flex-shrink-0" />
+                    <span className="text-left">{t("booking.notify_btn")}</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>{t("booking.waitlist_title")}</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <Input
+                      placeholder={t("booking.note_placeholder")}
+                      value={waitlistNote}
+                      onChange={(e) => setWaitlistNote(e.target.value)}
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      onClick={handleWaitlistSubmit}
+                      disabled={addToWaitlistMutation.isPending}
+                    >
+                      {t("booking.save_me")}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardContent>
         </Card>
 

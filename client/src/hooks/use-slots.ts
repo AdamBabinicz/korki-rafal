@@ -181,7 +181,6 @@ export function useDeleteSlot() {
   });
 }
 
-// Zmodyfikowany hook rezerwacji - dodane locationType
 export function useBookSlot() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -191,18 +190,24 @@ export function useBookSlot() {
     mutationFn: async (
       data:
         | number
-        | { id: number; durationMinutes?: number; locationType?: string }
+        | {
+            id: number;
+            durationMinutes?: number;
+            locationType?: string;
+            topic?: string;
+          }
     ) => {
       const id = typeof data === "number" ? data : data.id;
       const durationMinutes =
         typeof data === "number" ? 60 : data.durationMinutes || 60;
       const locationType =
         typeof data === "number" ? "onsite" : data.locationType || "onsite";
+      const topic = typeof data === "number" ? undefined : data.topic;
 
       const res = await fetch(`/api/slots/${id}/book`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ durationMinutes, locationType }),
+        body: JSON.stringify({ durationMinutes, locationType, topic }),
       });
 
       if (!res.ok) {
@@ -263,19 +268,20 @@ export function useCancelSlot() {
   });
 }
 
+// Zmiana: notes -> note
 export function useAddToWaitlist() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { t } = useTranslation();
 
   return useMutation({
-    mutationFn: async (data: { date: Date; notes?: string }) => {
+    mutationFn: async (data: { date: Date; note?: string }) => {
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           date: data.date.toISOString(),
-          notes: data.notes,
+          note: data.note, // Zmiana z notes na note
         }),
       });
 

@@ -56,6 +56,7 @@ export const waitlist = pgTable("waitlist", {
   userId: integer("user_id")
     .references(() => users.id)
     .notNull(),
+  note: text("note"),
 });
 
 export const sessions = pgTable("session", {
