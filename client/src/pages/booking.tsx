@@ -165,7 +165,7 @@ export default function BookingPage() {
         id: bookingSlot.id,
         durationMinutes: parseInt(bookingDuration),
         locationType,
-        topic: bookingTopic, // TERAZ TEMAT JEST PRZEKAZYWANY POPRAWNIE
+        topic: bookingTopic,
       },
       {
         onSuccess: () => setIsBookingOpen(false),
@@ -495,11 +495,15 @@ export default function BookingPage() {
                     <DialogTitle>{t("booking.waitlist_title")}</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
-                    <Input
-                      placeholder={t("booking.note_placeholder")}
-                      value={waitlistNote}
-                      onChange={(e) => setWaitlistNote(e.target.value)}
-                    />
+                    <div className="grid gap-2">
+                      <Label htmlFor="note">{t("booking.note_label")}</Label>
+                      <Input
+                        id="note"
+                        placeholder={t("booking.note_placeholder")}
+                        value={waitlistNote}
+                        onChange={(e) => setWaitlistNote(e.target.value)}
+                      />
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button

@@ -107,7 +107,10 @@ export const insertWeeklyScheduleSchema = createInsertSchema(
   id: true,
 });
 
-export const insertWaitlistSchema = createInsertSchema(waitlist).omit({
+// POPRAWKA: Dodano z.coerce.date(), aby naprawić błąd "Invalid request"
+export const insertWaitlistSchema = createInsertSchema(waitlist, {
+  date: z.coerce.date(),
+}).omit({
   id: true,
 });
 
