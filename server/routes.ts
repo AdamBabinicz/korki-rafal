@@ -8,6 +8,7 @@ import {
   sendNewBookingNotificationToAdmin,
   sendCancellationConfirmation,
   sendCancellationNotificationToAdmin,
+  sendWaitlistNotificationToAdmin, // Nowy import
 } from "./services/email";
 import { sendSafeTelegramAlert } from "./services/telegram";
 import {
@@ -35,6 +36,7 @@ import {
   isBefore,
   isAfter,
 } from "date-fns";
+import { pl } from "date-fns/locale"; // Potrzebne do formatowania daty dla Telegrama
 import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { eq, and, gte, lte, lt, ne, sql } from "drizzle-orm";
@@ -111,7 +113,7 @@ export async function registerRoutes(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
 
-    // Waitlist - FIX dla błędu "Invalid request"
+    // Waitlist
     await db.execute(
       sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`
     );
@@ -784,19 +786,48 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
     try {
-      // Poprawa obsługi błędów
       const input = insertWaitlistSchema.parse({
         ...req.body,
         userId: user.id,
       });
       const entry = await storage.addToWaitlist(input);
+
+      // --- WYSYŁANIE POWIADOMIEŃ ---
+      try {
+        const allUsers = await storage.getAllUsers();
+        const admin = allUsers.find((u) => u.role === "admin");
+        const adminEmail = admin?.email || process.env.EMAIL_USER;
+
+        if (adminEmail) {
+          await sendWaitlistNotificationToAdmin(
+            adminEmail,
+            user.name,
+            new Date(input.date),
+            input.note
+          );
+        }
+
+        // Telegram notification for waitlist
+        const formattedDate = format(
+          new Date(input.date),
+          "EEEE, d MMMM yyyy",
+          { locale: pl }
+        );
+        const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
+        await sendSafeTelegramAlert(
+          new Date(input.date),
+          `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${user.name}</b> zgłasza chęć lekcji.${noteText}`
+        );
+      } catch (error) {
+        console.error("Błąd wysyłania powiadomień waitlist:", error);
+      }
+
       res.status(201).json(entry);
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.issues[0].message });
       }
       console.error("[WAITLIST ERROR]", err);
-      // Jeśli to błąd bazy danych (np. brak kolumny note przed migracją), wyświetli się w logach serwera
       res.status(500).json({ message: "Server error" });
     }
   });

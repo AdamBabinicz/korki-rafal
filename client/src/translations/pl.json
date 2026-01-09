@@ -153,6 +153,8 @@
     "loc_onsite": "Stacjonarnie / Online",
     "loc_commute": "Z dojazdem",
     "travel_time": "Czas dojazdu (min)",
+    "travel_time_hint": "Czas dojazdu zostanie doliczony do czasu blokady.",
+    "commute_suffix": "dojazd",
     "table": {
       "id": "ID",
       "name": "Imię i Nazwisko",

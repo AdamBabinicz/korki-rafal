@@ -153,6 +153,8 @@
     "loc_onsite": "On-site / Online",
     "loc_commute": "With Commute",
     "travel_time": "Travel Time (min)",
+    "travel_time_hint": "Travel time will be added to the slot duration.",
+    "commute_suffix": "commute",
     "table": {
       "id": "ID",
       "name": "Full Name",

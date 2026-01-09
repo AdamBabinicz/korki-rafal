@@ -140,7 +140,7 @@ export async function broadcastFreeSlot(
 }
 
 /**
- * NOWE: Potwierdzenie anulowania dla ucznia
+ * Potwierdzenie anulowania dla ucznia
  */
 export async function sendCancellationConfirmation(
   to: string,
@@ -181,7 +181,7 @@ export async function sendCancellationConfirmation(
 }
 
 /**
- * NOWE: Powiadomienie dla Admina o anulowaniu
+ * Powiadomienie dla Admina o anulowaniu
  */
 export async function sendCancellationNotificationToAdmin(
   adminEmail: string,
@@ -218,5 +218,47 @@ export async function sendCancellationNotificationToAdmin(
     console.log(`[EMAIL] Info o anulowaniu wysłane do Admina.`);
   } catch (error) {
     console.error("[EMAIL] Błąd wysyłania info o anulowaniu do admina:", error);
+  }
+}
+
+/**
+ * NOWE: Powiadomienie dla Admina o zapisie na listę rezerwową
+ */
+export async function sendWaitlistNotificationToAdmin(
+  adminEmail: string,
+  studentName: string,
+  date: Date,
+  note?: string | null
+) {
+  if (!adminEmail || !adminEmail.includes("@")) return;
+
+  const formattedDate = format(date, "EEEE, d MMMM yyyy", { locale: pl });
+  const userNote = note ? note : "Brak notatki";
+
+  const mailOptions = {
+    from: `"MathMentor System" <${process.env.EMAIL_USER}>`,
+    to: adminEmail,
+    subject: `🔔 Lista rezerwowa: ${studentName}`,
+    html: `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #8b5cf6;">Nowe zgłoszenie (Lista Rezerwowa)</h2>
+        <p>Uczeń <strong>${studentName}</strong> zgłosił chęć odbycia lekcji.</p>
+
+        <div style="background-color: #f5f3ff; padding: 15px; border-radius: 8px; margin: 15px 0; border: 1px solid #ddd6fe;">
+          <p style="margin: 5px 0;">📅 <strong>Dzień:</strong> ${formattedDate}</p>
+          <p style="margin: 5px 0;">📝 <strong>Notatka ucznia:</strong><br/><i>"${userNote}"</i></p>
+        </div>
+
+        <p>Sprawdź grafik i skontaktuj się z uczniem lub dodaj slot.</p>
+        <p><a href="https://mathmentor.pl/admin" style="color: #8b5cf6; text-decoration: none;">Panel Admina</a></p>
+      </div>
+    `,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`[EMAIL] Powiadomienie o liście rezerwowej wysłane.`);
+  } catch (error) {
+    console.error("[EMAIL] Błąd wysyłania info o liście rezerwowej:", error);
   }
 }

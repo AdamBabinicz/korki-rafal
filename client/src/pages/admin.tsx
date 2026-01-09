@@ -26,7 +26,7 @@ import {
   UserCog,
   Pencil,
   XCircle,
-  Car, // Nowa ikona
+  Car,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -103,7 +103,7 @@ export default function AdminPanel() {
 
   const { data: user } = useUser();
 
-  const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
+  const dateLocale = i18n.language?.toLowerCase().startsWith("pl") ? pl : enUS;
 
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
@@ -734,7 +734,7 @@ export default function AdminPanel() {
                           }
                         />
                         <p className="text-xs text-muted-foreground">
-                          Czas dojazdu zostanie doliczony do czasu blokady.
+                          {t("admin.travel_time_hint")}
                         </p>
                       </div>
                     )}
@@ -1403,7 +1403,8 @@ export default function AdminPanel() {
                               {item.durationMinutes} min
                               {isCommute && (
                                 <span className="text-orange-600 ml-1">
-                                  (+{item.travelMinutes} dojazd)
+                                  (+{item.travelMinutes}{" "}
+                                  {t("admin.commute_suffix")})
                                 </span>
                               )}
                             </div>
