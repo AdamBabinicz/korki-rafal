@@ -90,31 +90,33 @@ export async function registerRoutes(
 
   // --- AUTOMATYCZNA NAPRAWA BAZY DANYCH (MIGRACJA) ---
   try {
-    console.log("[DB] Sprawdzanie struktury tabeli slots...");
-    await db.execute(sql`
-      ALTER TABLE slots
-      ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;
-    `);
-    await db.execute(sql`
-      ALTER TABLE slots
-      ADD COLUMN IF NOT EXISTS location_type TEXT;
-    `);
-    await db.execute(sql`
-      ALTER TABLE slots
-      ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;
-    `);
+    console.log("[DB] Sprawdzanie struktury tabel...");
 
-    // Migracja dla tabeli weekly_schedule
-    await db.execute(sql`
-      ALTER TABLE weekly_schedule
-      ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';
-    `);
-    await db.execute(sql`
-      ALTER TABLE weekly_schedule
-      ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;
-    `);
+    // Slots
+    await db.execute(
+      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;`
+    );
+    await db.execute(
+      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS location_type TEXT;`
+    );
+    await db.execute(
+      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
+    );
 
-    console.log("[DB] Struktura tabeli slots i weekly_schedule jest poprawna.");
+    // Weekly Schedule
+    await db.execute(
+      sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';`
+    );
+    await db.execute(
+      sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
+    );
+
+    // Waitlist - FIX dla błędu "Invalid request"
+    await db.execute(
+      sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`
+    );
+
+    console.log("[DB] Struktura tabel jest poprawna.");
   } catch (err) {
     console.error(
       "[DB] Błąd auto-migracji (można zignorować jeśli kolumny istnieją):",
@@ -264,11 +266,6 @@ export async function registerRoutes(
     }
     try {
       const input = insertSlotSchema.parse(req.body);
-
-      // Jeśli manualnie dodajemy slot z dojazdem, upewnijmy się, że czas zakończenia to uwzględnia
-      // Jeśli startTime i endTime są podane jawnie przez usera, zakładamy że user wie co robi.
-      // Ewentualnie można tu dodać logikę weryfikacji.
-
       const slot = await storage.createSlot(input);
       res.status(201).json(slot);
     } catch (err) {
@@ -353,7 +350,6 @@ export async function registerRoutes(
   // --- GENERATORY ---
 
   app.post("/api/slots/generate", async (req, res) => {
-    // Prosty generator (stara wersja, rzadziej używana, ale warto zachować kompatybilność)
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
       return res.status(403).send("Unauthorized");
@@ -419,7 +415,6 @@ export async function registerRoutes(
             const isCollision = fixedLessons.some((lesson) => {
               const [lh, lm] = lesson.startTime.split(":").map(Number);
               const lessonStartMin = lh * 60 + lm;
-              // Przy sprawdzaniu kolizji uwzględniamy potencjalny dojazd w szablonie
               const extraTime =
                 lesson.locationType === "commute"
                   ? lesson.travelMinutes || 0
@@ -439,7 +434,6 @@ export async function registerRoutes(
                 endTime: slotEnd,
                 isBooked: false,
                 isPaid: false,
-                // Domyślne wartości dla prostego generatora
                 locationType: "onsite",
                 travelMinutes: 0,
               });
@@ -525,7 +519,6 @@ export async function registerRoutes(
           }
           processedTimes.add(timeKey);
 
-          // Obliczanie czasu trwania uwzględniając dojazd
           const extraTime =
             item.locationType === "commute" ? item.travelMinutes || 0 : 0;
           const totalDuration = item.durationMinutes + extraTime;
@@ -541,12 +534,11 @@ export async function registerRoutes(
             ? item.student?.name || "Matematyka"
             : undefined;
 
-          // Dane do zapisu/aktualizacji
           const slotData: Partial<typeof slots.$inferInsert> = {
             isBooked: isBooked,
             studentId: item.studentId,
             topic: topic,
-            endTime: slotEnd, // endTime uwzględnia dojazd
+            endTime: slotEnd,
             price: item.price,
             locationType: item.locationType,
             travelMinutes: item.travelMinutes,
@@ -563,7 +555,7 @@ export async function registerRoutes(
               ...slotData,
               startTime: slotStart,
               isPaid: false,
-              endTime: slotEnd, // Wymagane przez TS w createSlot
+              endTime: slotEnd,
             } as typeof slots.$inferInsert);
             count++;
           }
@@ -600,7 +592,6 @@ export async function registerRoutes(
       if (!slot) return res.status(404).send("Slot not found");
       if (slot.isBooked) return res.status(409).send("Slot already booked");
 
-      // Logika bufora dla ucznia (standardowo 30 min jeśli dojazd)
       const travelBuffer = locationType === "commute" ? 30 : 0;
       const totalOccupiedMinutes = durationMinutes + travelBuffer;
       const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
@@ -635,7 +626,7 @@ export async function registerRoutes(
         endTime: newEndTime,
         bookedAt: new Date(),
         locationType: locationType,
-        travelMinutes: travelBuffer, // Zapisujemy 30 min jako travelMinutes dla rezerwacji przez ucznia
+        travelMinutes: travelBuffer,
       });
 
       for (const collision of potentialCollisions) {
@@ -700,7 +691,6 @@ export async function registerRoutes(
         return res.status(403).send("Not authorized");
       }
 
-      // --- LOGIKA "GRACE PERIOD" ---
       if (user.role !== "admin") {
         const now = new Date();
         const bookedAt = slot.bookedAt ? new Date(slot.bookedAt) : new Date(0);
@@ -721,7 +711,6 @@ export async function registerRoutes(
           });
         }
       }
-      // -----------------------------
 
       const updated = await storage.updateSlot(id, {
         isBooked: false,
@@ -729,8 +718,8 @@ export async function registerRoutes(
         isPaid: false,
         topic: null,
         bookedAt: null,
-        locationType: "onsite", // Reset do domyślnego
-        travelMinutes: 0, // Reset do domyślnego
+        locationType: "onsite",
+        travelMinutes: 0,
       });
 
       console.log(`[SLOT] Termin ${id} został zwolniony.`);
@@ -795,6 +784,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
     try {
+      // Poprawa obsługi błędów
       const input = insertWaitlistSchema.parse({
         ...req.body,
         userId: user.id,
@@ -802,7 +792,12 @@ export async function registerRoutes(
       const entry = await storage.addToWaitlist(input);
       res.status(201).json(entry);
     } catch (err) {
-      res.status(400).json({ message: "Invalid request" });
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.issues[0].message });
+      }
+      console.error("[WAITLIST ERROR]", err);
+      // Jeśli to błąd bazy danych (np. brak kolumny note przed migracją), wyświetli się w logach serwera
+      res.status(500).json({ message: "Server error" });
     }
   });
 
