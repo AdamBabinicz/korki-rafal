@@ -707,20 +707,23 @@ export default function AdminPanel() {
                         <Label>{t("admin.slot_duration")}</Label>
                         <Input
                           type="number"
-                          defaultValue={60}
-                          onChange={(e) =>
+                          value={newSlotData.duration ?? 0}
+                          onChange={(e) => {
+                            const newDuration = parseInt(e.target.value) || 0;
+                            const newPrice = Math.ceil((newDuration / 60) * 80);
                             setNewSlotData({
                               ...newSlotData,
-                              duration: parseInt(e.target.value),
-                            })
-                          }
+                              duration: newDuration,
+                              price: newPrice,
+                            });
+                          }}
                         />
                       </div>
                       <div className="grid gap-2">
                         <Label>{t("admin.price")}</Label>
                         <Input
                           type="number"
-                          defaultValue={80}
+                          value={newSlotData.price ?? 0}
                           onChange={(e) =>
                             setNewSlotData({
                               ...newSlotData,
@@ -758,7 +761,7 @@ export default function AdminPanel() {
                         <Label>{t("admin.travel_time")}</Label>
                         <Input
                           type="number"
-                          value={newSlotData.travelMinutes || 0}
+                          value={newSlotData.travelMinutes ?? 0}
                           onChange={(e) =>
                             setNewSlotData({
                               ...newSlotData,
