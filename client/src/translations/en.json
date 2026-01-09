@@ -23,16 +23,25 @@
     "flexible_desc": "Cancel lessons up to 24 hours in advance."
   },
   "dashboard": {
+    "welcome": "Hi, {{name}}!",
+    "welcome_subtitle": "Good to see you back. Ready for math?",
     "next_lesson": "Next lesson in",
     "upcoming": "Upcoming Lessons",
+    "book_first": "Book your first lesson",
     "no_lessons": "No upcoming lessons.",
     "history": "Lesson History",
     "paid": "Paid",
     "unpaid": "Unpaid",
     "default_topic": "Mathematics",
-    "profile_title": "Profile Details",
-    "profile_subtitle": "Update your contact information",
-    "save_changes": "Save Changes"
+    "profile_title": "Your Data",
+    "profile_subtitle": "Provide email to receive notifications about free slots.",
+    "email_label": "Email Address",
+    "phone_label": "Phone (optional)",
+    "save_changes": "Save Changes",
+    "security_title": "Security",
+    "current_password": "Current password (optional on first change)",
+    "new_password": "New Password",
+    "change_password_btn": "Change Password"
   },
   "booking": {
     "back_to_dashboard": "Back to Dashboard",

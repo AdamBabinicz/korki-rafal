@@ -37,12 +37,13 @@ import {
   subDays,
   addYears,
 } from "date-fns";
-import { pl } from "date-fns/locale";
+import { pl, enUS } from "date-fns/locale";
 import { Link } from "wouter";
 import { useMemo, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 // Schemat dla zmiany hasła
 const passwordSchema = z.object({
@@ -64,6 +65,9 @@ export default function DashboardPage() {
   const { data: user } = useUser();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { t, i18n } = useTranslation();
+
+  const dateLocale = i18n.language?.toLowerCase().startsWith("pl") ? pl : enUS;
 
   // --- SLOTY ---
   const dateRange = useMemo(() => {
@@ -98,14 +102,14 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       toast({
-        title: "Zaktualizowano profil",
-        description: "Twoje dane kontaktowe zostały zapisane.",
+        title: t("dashboard.save_changes"),
+        description: t("toasts.success"),
       });
     },
     onError: (error: any) => {
       toast({
         variant: "destructive",
-        title: "Błąd",
+        title: t("toasts.error"),
         description: error.message || "Nie udało się zapisać danych.",
       });
     },
@@ -161,10 +165,10 @@ export default function DashboardPage() {
       {/* NAGŁÓWEK */}
       <div>
         <h2 className="text-3xl font-bold tracking-tight">
-          Cześć, {user?.name || user?.username}!
+          {t("dashboard.welcome", { name: user?.name || user?.username })}
         </h2>
         <p className="text-muted-foreground mt-2">
-          Miło Cię widzieć z powrotem. Gotowy na matematykę?
+          {t("dashboard.welcome_subtitle")}
         </p>
       </div>
 
@@ -175,7 +179,7 @@ export default function DashboardPage() {
           <Card className="bg-primary text-primary-foreground border-none shadow-lg">
             <CardHeader>
               <CardTitle className="text-lg opacity-90">
-                Następna lekcja za
+                {t("dashboard.next_lesson")}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -183,20 +187,20 @@ export default function DashboardPage() {
                 <div className="space-y-2">
                   <div className="text-4xl font-bold tracking-tighter">
                     {formatDistanceToNow(new Date(nextLesson.startTime), {
-                      locale: pl,
+                      locale: dateLocale,
                     })}
                   </div>
                   <div className="text-lg opacity-90 font-medium">
                     {format(
                       new Date(nextLesson.startTime),
                       "d MMMM yyyy, HH:mm",
-                      { locale: pl }
+                      { locale: dateLocale }
                     )}
                   </div>
                 </div>
               ) : (
                 <div className="text-lg opacity-90">
-                  Brak zaplanowanych lekcji.
+                  {t("dashboard.no_lessons")}
                 </div>
               )}
             </CardContent>
@@ -205,21 +209,21 @@ export default function DashboardPage() {
           {/* LISTA NADCHODZĄCYCH LEKCJI */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Nadchodzące lekcje</CardTitle>
+              <CardTitle>{t("dashboard.upcoming")}</CardTitle>
               <Button variant="outline" size="sm" asChild>
-                <Link href="/booking">Zarezerwuj</Link>
+                <Link href="/booking">{t("booking.book_btn")}</Link>
               </Button>
             </CardHeader>
             <CardContent>
               {myUpcomingSlots.length === 0 ? (
                 <div className="text-center py-6 text-muted-foreground">
-                  Brak nadchodzących lekcji.
+                  {t("dashboard.no_lessons")}
                   <br />
                   <Link
                     href="/booking"
                     className="text-primary hover:underline mt-2 inline-block"
                   >
-                    Zarezerwuj pierwszą lekcję
+                    {t("dashboard.book_first")}
                   </Link>
                 </div>
               ) : (
@@ -233,7 +237,7 @@ export default function DashboardPage() {
                         <div className="font-semibold flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-primary" />
                           {format(new Date(slot.startTime), "d MMMM yyyy", {
-                            locale: pl,
+                            locale: dateLocale,
                           })}
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -249,7 +253,9 @@ export default function DashboardPage() {
                                 : "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
                             }`}
                           >
-                            {slot.isPaid ? "Opłacone" : "Nieopłacone"}
+                            {slot.isPaid
+                              ? t("dashboard.paid")
+                              : t("dashboard.unpaid")}
                           </span>
                         </div>
                       </div>
@@ -260,9 +266,7 @@ export default function DashboardPage() {
                         size="sm"
                         className="gap-2"
                         onClick={() => {
-                          if (
-                            confirm("Czy na pewno chcesz anulować tę lekcję?")
-                          ) {
+                          if (confirm(t("booking.cancel_desc"))) {
                             cancelSlotMutation.mutate(slot.id);
                           }
                         }}
@@ -273,7 +277,7 @@ export default function DashboardPage() {
                         ) : (
                           <XCircle className="h-4 w-4" />
                         )}
-                        Anuluj
+                        {t("booking.cancel_btn")}
                       </Button>
                     </div>
                   ))}
@@ -290,10 +294,10 @@ export default function DashboardPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Mail className="w-5 h-5 text-primary" />
-                Twoje Dane
+                {t("dashboard.profile_title")}
               </CardTitle>
               <CardDescription>
-                Podaj e-mail, aby otrzymywać powiadomienia o wolnych terminach.
+                {t("dashboard.profile_subtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -307,7 +311,7 @@ export default function DashboardPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Adres E-mail</FormLabel>
+                        <FormLabel>{t("dashboard.email_label")}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -328,7 +332,7 @@ export default function DashboardPage() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Telefon (opcjonalnie)</FormLabel>
+                        <FormLabel>{t("dashboard.phone_label")}</FormLabel>
                         <FormControl>
                           <div className="relative">
                             <Phone className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -355,7 +359,7 @@ export default function DashboardPage() {
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
                     )}
-                    Zapisz dane
+                    {t("dashboard.save_changes")}
                   </Button>
                 </form>
               </Form>
@@ -365,7 +369,9 @@ export default function DashboardPage() {
           {/* 2. ZMIANA HASŁA */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Bezpieczeństwo</CardTitle>
+              <CardTitle className="text-lg">
+                {t("dashboard.security_title")}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <Form {...passwordForm}>
@@ -388,7 +394,7 @@ export default function DashboardPage() {
                     name="currentPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>Obecne hasło</Label>
+                        <Label>{t("dashboard.current_password")}</Label>
                         <FormControl>
                           <Input
                             type="password"
@@ -405,7 +411,7 @@ export default function DashboardPage() {
                     name="newPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <Label>Nowe hasło</Label>
+                        <Label>{t("dashboard.new_password")}</Label>
                         <FormControl>
                           <Input
                             type="password"
@@ -425,7 +431,7 @@ export default function DashboardPage() {
                     {changePasswordMutation.isPending && (
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    Zmień hasło
+                    {t("dashboard.change_password_btn")}
                   </Button>
                 </form>
               </Form>
