@@ -149,6 +149,10 @@
     "new_password_placeholder": "Enter new password...",
     "student_deleted": "Student deleted",
     "delete_confirm_student": "Are you sure you want to delete this student? This will delete their history too.",
+    "location_type": "Lesson Type",
+    "loc_onsite": "On-site / Online",
+    "loc_commute": "With Commute",
+    "travel_time": "Travel Time (min)",
     "table": {
       "id": "ID",
       "name": "Full Name",

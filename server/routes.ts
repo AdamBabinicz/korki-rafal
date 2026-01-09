@@ -99,10 +99,25 @@ export async function registerRoutes(
       ALTER TABLE slots
       ADD COLUMN IF NOT EXISTS location_type TEXT;
     `);
-    console.log("[DB] Struktura tabeli slots jest poprawna.");
+    await db.execute(sql`
+      ALTER TABLE slots
+      ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;
+    `);
+
+    // Migracja dla tabeli weekly_schedule
+    await db.execute(sql`
+      ALTER TABLE weekly_schedule
+      ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';
+    `);
+    await db.execute(sql`
+      ALTER TABLE weekly_schedule
+      ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;
+    `);
+
+    console.log("[DB] Struktura tabeli slots i weekly_schedule jest poprawna.");
   } catch (err) {
     console.error(
-      "[DB] Błąd auto-migracji (można zignorować jeśli kolumna istnieje):",
+      "[DB] Błąd auto-migracji (można zignorować jeśli kolumny istnieją):",
       err
     );
   }
@@ -249,9 +264,15 @@ export async function registerRoutes(
     }
     try {
       const input = insertSlotSchema.parse(req.body);
+
+      // Jeśli manualnie dodajemy slot z dojazdem, upewnijmy się, że czas zakończenia to uwzględnia
+      // Jeśli startTime i endTime są podane jawnie przez usera, zakładamy że user wie co robi.
+      // Ewentualnie można tu dodać logikę weryfikacji.
+
       const slot = await storage.createSlot(input);
       res.status(201).json(slot);
     } catch (err) {
+      console.error(err);
       res.status(400).json({ message: "Error creating slot" });
     }
   });
@@ -332,6 +353,7 @@ export async function registerRoutes(
   // --- GENERATORY ---
 
   app.post("/api/slots/generate", async (req, res) => {
+    // Prosty generator (stara wersja, rzadziej używana, ale warto zachować kompatybilność)
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
       return res.status(403).send("Unauthorized");
@@ -397,7 +419,13 @@ export async function registerRoutes(
             const isCollision = fixedLessons.some((lesson) => {
               const [lh, lm] = lesson.startTime.split(":").map(Number);
               const lessonStartMin = lh * 60 + lm;
-              const lessonEndMin = lessonStartMin + lesson.durationMinutes;
+              // Przy sprawdzaniu kolizji uwzględniamy potencjalny dojazd w szablonie
+              const extraTime =
+                lesson.locationType === "commute"
+                  ? lesson.travelMinutes || 0
+                  : 0;
+              const lessonEndMin =
+                lessonStartMin + lesson.durationMinutes + extraTime;
 
               return slotStartMin < lessonEndMin && slotEndMin > lessonStartMin;
             });
@@ -411,6 +439,9 @@ export async function registerRoutes(
                 endTime: slotEnd,
                 isBooked: false,
                 isPaid: false,
+                // Domyślne wartości dla prostego generatora
+                locationType: "onsite",
+                travelMinutes: 0,
               });
               existingTimestamps.add(daySlotStart.getTime());
               count++;
@@ -494,7 +525,12 @@ export async function registerRoutes(
           }
           processedTimes.add(timeKey);
 
-          const slotEnd = addMinutes(slotStart, item.durationMinutes);
+          // Obliczanie czasu trwania uwzględniając dojazd
+          const extraTime =
+            item.locationType === "commute" ? item.travelMinutes || 0 : 0;
+          const totalDuration = item.durationMinutes + extraTime;
+
+          const slotEnd = addMinutes(slotStart, totalDuration);
 
           const existingSlot = existingSlots.find(
             (s) => Math.abs(differenceInMinutes(s.startTime, slotStart)) < 2
@@ -505,30 +541,30 @@ export async function registerRoutes(
             ? item.student?.name || "Matematyka"
             : undefined;
 
+          // Dane do zapisu/aktualizacji
+          const slotData: Partial<typeof slots.$inferInsert> = {
+            isBooked: isBooked,
+            studentId: item.studentId,
+            topic: topic,
+            endTime: slotEnd, // endTime uwzględnia dojazd
+            price: item.price,
+            locationType: item.locationType,
+            travelMinutes: item.travelMinutes,
+          };
+
           if (existingSlot) {
-            await storage.updateSlot(existingSlot.id, {
-              isBooked: isBooked,
-              studentId: item.studentId,
-              topic: topic,
-              endTime: slotEnd,
-              price: item.price,
-            });
+            await storage.updateSlot(existingSlot.id, slotData);
             updatedCount++;
           } else {
             console.log(
-              `[GENERATOR] Tworzę slot: ${dateStr} ${item.startTime} (Uczeń: ${
-                item.studentId || "Brak"
-              })`
+              `[GENERATOR] Tworzę slot: ${dateStr} ${item.startTime} (Typ: ${item.locationType}, Dojazd: ${item.travelMinutes}min)`
             );
             await storage.createSlot({
+              ...slotData,
               startTime: slotStart,
-              endTime: slotEnd,
-              isBooked: isBooked,
-              studentId: item.studentId,
               isPaid: false,
-              topic: topic,
-              price: item.price,
-            });
+              endTime: slotEnd, // Wymagane przez TS w createSlot
+            } as typeof slots.$inferInsert);
             count++;
           }
         }
@@ -564,6 +600,7 @@ export async function registerRoutes(
       if (!slot) return res.status(404).send("Slot not found");
       if (slot.isBooked) return res.status(409).send("Slot already booked");
 
+      // Logika bufora dla ucznia (standardowo 30 min jeśli dojazd)
       const travelBuffer = locationType === "commute" ? 30 : 0;
       const totalOccupiedMinutes = durationMinutes + travelBuffer;
       const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
@@ -574,7 +611,7 @@ export async function registerRoutes(
         .where(
           and(
             gte(slots.startTime, slot.startTime),
-            lt(slots.startTime, newEndTime), // POPRAWKA: lt zamiast lte
+            lt(slots.startTime, newEndTime),
             ne(slots.id, id)
           )
         );
@@ -598,6 +635,7 @@ export async function registerRoutes(
         endTime: newEndTime,
         bookedAt: new Date(),
         locationType: locationType,
+        travelMinutes: travelBuffer, // Zapisujemy 30 min jako travelMinutes dla rezerwacji przez ucznia
       });
 
       for (const collision of potentialCollisions) {
@@ -691,7 +729,8 @@ export async function registerRoutes(
         isPaid: false,
         topic: null,
         bookedAt: null,
-        locationType: null,
+        locationType: "onsite", // Reset do domyślnego
+        travelMinutes: 0, // Reset do domyślnego
       });
 
       console.log(`[SLOT] Termin ${id} został zwolniony.`);

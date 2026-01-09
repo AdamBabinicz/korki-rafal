@@ -26,6 +26,7 @@ import {
   UserCog,
   Pencil,
   XCircle,
+  Car, // Nowa ikona
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -417,18 +418,27 @@ export default function AdminPanel() {
   const [editingTemplateItem, setEditingTemplateItem] =
     useState<WeeklySchedule | null>(null);
 
+  // Stany formularza edycji slotu
   const [editFormDuration, setEditFormDuration] = useState(60);
   const [editFormPrice, setEditFormPrice] = useState(80);
+  const [editFormLocation, setEditFormLocation] = useState("onsite");
+  const [editFormTravel, setEditFormTravel] = useState(0);
 
+  // Stany formularza edycji szablonu
   const [tplFormDuration, setTplFormDuration] = useState(60);
   const [tplFormPrice, setTplFormPrice] = useState(80);
+  const [tplFormLocation, setTplFormLocation] = useState("onsite");
+  const [tplFormTravel, setTplFormTravel] = useState(0);
 
+  // Stan formularza nowego slotu
   const [newSlotData, setNewSlotData] = useState<
     Partial<InsertSlot> & { duration: number }
   >({
     startTime: new Date(),
     duration: 60,
     price: 80,
+    locationType: "onsite",
+    travelMinutes: 0,
   });
 
   const [genRange, setGenRange] = useState({
@@ -441,12 +451,15 @@ export default function AdminPanel() {
     defaultPrice: 80,
   });
 
+  // Stan formularza nowego elementu szablonu
   const [templateForm, setTemplateForm] = useState({
     dayOfWeek: "1",
     startTime: "16:00",
     durationMinutes: "60",
     price: "80",
     studentId: "none",
+    locationType: "onsite",
+    travelMinutes: "0",
   });
 
   const [adminProfileForm, setAdminProfileForm] = useState({
@@ -467,12 +480,20 @@ export default function AdminPanel() {
 
   useEffect(() => {
     if (editingSlot) {
-      const duration = differenceInMinutes(
+      // Obliczamy czas trwania lekcji (nie slotu, slot może mieć travel time)
+      // Jednak w bazie slot.endTime to koniec wszystkiego.
+      // Więc lessonDuration = (endTime - startTime) - travelMinutes
+      const totalDuration = differenceInMinutes(
         new Date(editingSlot.endTime),
         new Date(editingSlot.startTime)
       );
-      setEditFormDuration(duration);
+      const travel = editingSlot.travelMinutes || 0;
+      const lessonDuration = totalDuration - travel;
+
+      setEditFormDuration(lessonDuration > 0 ? lessonDuration : 60);
       setEditFormPrice(editingSlot.price || 80);
+      setEditFormLocation(editingSlot.locationType || "onsite");
+      setEditFormTravel(travel);
     }
   }, [editingSlot]);
 
@@ -480,6 +501,8 @@ export default function AdminPanel() {
     if (editingTemplateItem) {
       setTplFormDuration(editingTemplateItem.durationMinutes);
       setTplFormPrice(editingTemplateItem.price || 80);
+      setTplFormLocation(editingTemplateItem.locationType || "onsite");
+      setTplFormTravel(editingTemplateItem.travelMinutes || 0);
     }
   }, [editingTemplateItem]);
 
@@ -489,7 +512,15 @@ export default function AdminPanel() {
   const handleCreateSlot = () => {
     if (!newSlotData.startTime) return;
 
-    const end = addMinutes(newSlotData.startTime, newSlotData.duration || 60);
+    // Obliczamy całkowity czas blokady (lekcja + dojazd)
+    const travel =
+      newSlotData.locationType === "commute"
+        ? newSlotData.travelMinutes || 0
+        : 0;
+    const lessonDuration = newSlotData.duration || 60;
+    const totalDuration = lessonDuration + travel;
+
+    const end = addMinutes(newSlotData.startTime, totalDuration);
 
     const payload: any = {
       startTime: newSlotData.startTime,
@@ -500,6 +531,8 @@ export default function AdminPanel() {
       topic: newSlotData.studentId
         ? users?.find((u) => u.id === newSlotData.studentId)?.name
         : undefined,
+      locationType: newSlotData.locationType,
+      travelMinutes: travel,
     };
     createSlotMutation.mutate(payload);
   };
@@ -570,6 +603,7 @@ export default function AdminPanel() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              {/* MODAL NOWY SLOT */}
               <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
                 <DialogTrigger asChild>
                   <Button className="w-full md:w-auto">
@@ -577,7 +611,7 @@ export default function AdminPanel() {
                     {t("admin.add_slot_btn")}
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>{t("admin.new_slot_title")}</DialogTitle>
                     <DialogDescription>
@@ -635,32 +669,76 @@ export default function AdminPanel() {
                       </div>
                     </div>
 
-                    <div className="grid gap-2">
-                      <Label>{t("admin.slot_duration")}</Label>
-                      <Input
-                        type="number"
-                        defaultValue={60}
-                        onChange={(e) =>
-                          setNewSlotData({
-                            ...newSlotData,
-                            duration: parseInt(e.target.value),
-                          })
-                        }
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label>{t("admin.slot_duration")}</Label>
+                        <Input
+                          type="number"
+                          defaultValue={60}
+                          onChange={(e) =>
+                            setNewSlotData({
+                              ...newSlotData,
+                              duration: parseInt(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="grid gap-2">
+                        <Label>{t("admin.price")}</Label>
+                        <Input
+                          type="number"
+                          defaultValue={80}
+                          onChange={(e) =>
+                            setNewSlotData({
+                              ...newSlotData,
+                              price: parseInt(e.target.value),
+                            })
+                          }
+                        />
+                      </div>
                     </div>
+
                     <div className="grid gap-2">
-                      <Label>{t("admin.price")}</Label>
-                      <Input
-                        type="number"
-                        defaultValue={80}
-                        onChange={(e) =>
-                          setNewSlotData({
-                            ...newSlotData,
-                            price: parseInt(e.target.value),
-                          })
+                      <Label>{t("admin.location_type")}</Label>
+                      <Select
+                        value={newSlotData.locationType || "onsite"}
+                        onValueChange={(val) =>
+                          setNewSlotData({ ...newSlotData, locationType: val })
                         }
-                      />
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="onsite">
+                            {t("admin.loc_onsite")}
+                          </SelectItem>
+                          <SelectItem value="commute">
+                            {t("admin.loc_commute")}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
+
+                    {newSlotData.locationType === "commute" && (
+                      <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                        <Label>{t("admin.travel_time")}</Label>
+                        <Input
+                          type="number"
+                          value={newSlotData.travelMinutes || 0}
+                          onChange={(e) =>
+                            setNewSlotData({
+                              ...newSlotData,
+                              travelMinutes: parseInt(e.target.value),
+                            })
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Czas dojazdu zostanie doliczony do czasu blokady.
+                        </p>
+                      </div>
+                    )}
+
                     <div className="grid gap-2">
                       <Label>Uczeń (opcjonalnie)</Label>
                       <Select
@@ -838,6 +916,7 @@ export default function AdminPanel() {
                           const student = users?.find(
                             (u) => u.id === slot.studentId
                           );
+                          const isCommute = slot.locationType === "commute";
                           return (
                             <div
                               key={slot.id}
@@ -851,8 +930,11 @@ export default function AdminPanel() {
                               `}
                             >
                               <div className="font-bold flex justify-between items-center mb-1">
-                                <span>
+                                <span className="flex items-center gap-1">
                                   {format(new Date(slot.startTime), "HH:mm")}
+                                  {isCommute && (
+                                    <Car className="h-3 w-3 text-orange-600" />
+                                  )}
                                 </span>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {!slot.isBooked && (
@@ -923,13 +1005,25 @@ export default function AdminPanel() {
                                       {student.phone}
                                     </div>
                                   )}
-                                  <div className="text-xs font-semibold mt-1">
-                                    {slot.price} PLN
+                                  <div className="flex justify-between items-center text-xs mt-1">
+                                    <span className="font-semibold">
+                                      {slot.price} PLN
+                                    </span>
+                                    {isCommute && (
+                                      <span className="text-orange-600 font-medium">
+                                        +{slot.travelMinutes} min
+                                      </span>
+                                    )}
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-green-700 dark:text-green-400 font-medium">
-                                  {t("admin.available")}
+                                <div className="text-green-700 dark:text-green-400 font-medium flex justify-between items-center">
+                                  <span>{t("admin.available")}</span>
+                                  {isCommute && (
+                                    <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded">
+                                      +{slot.travelMinutes}m
+                                    </span>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -943,6 +1037,7 @@ export default function AdminPanel() {
             })}
           </div>
 
+          {/* MODAL EDYCJI SLOTU */}
           <Dialog
             open={!!editingSlot}
             onOpenChange={(open) => !open && setEditingSlot(null)}
@@ -974,6 +1069,9 @@ export default function AdminPanel() {
 
                     const price = editFormPrice;
                     const duration = editFormDuration;
+                    const locationType = editFormLocation;
+                    const travel =
+                      locationType === "commute" ? editFormTravel : 0;
 
                     let newStartTime: Date | undefined;
                     let newEndTime: Date | undefined;
@@ -982,7 +1080,8 @@ export default function AdminPanel() {
                       const [hours, minutes] = timeRaw.split(":").map(Number);
                       newStartTime = new Date(editingSlot.startTime);
                       newStartTime.setHours(hours, minutes);
-                      newEndTime = addMinutes(newStartTime, duration);
+                      const totalDuration = duration + travel;
+                      newEndTime = addMinutes(newStartTime, totalDuration);
                     }
 
                     const isBooked = !!studentId;
@@ -997,6 +1096,8 @@ export default function AdminPanel() {
                         topic,
                         startTime: newStartTime,
                         endTime: newEndTime,
+                        locationType,
+                        travelMinutes: travel,
                       },
                     });
                   }}
@@ -1015,7 +1116,7 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label>Czas trwania (min)</Label>
+                      <Label>Czas trwania lekcji (min)</Label>
                       <Input
                         name="duration"
                         type="number"
@@ -1029,6 +1130,39 @@ export default function AdminPanel() {
                       />
                     </div>
                   </div>
+
+                  <div className="grid gap-2">
+                    <Label>{t("admin.location_type")}</Label>
+                    <Select
+                      value={editFormLocation}
+                      onValueChange={setEditFormLocation}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="onsite">
+                          {t("admin.loc_onsite")}
+                        </SelectItem>
+                        <SelectItem value="commute">
+                          {t("admin.loc_commute")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {editFormLocation === "commute" && (
+                    <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                      <Label>{t("admin.travel_time")}</Label>
+                      <Input
+                        type="number"
+                        value={editFormTravel}
+                        onChange={(e) =>
+                          setEditFormTravel(parseInt(e.target.value) || 0)
+                        }
+                      />
+                    </div>
+                  )}
 
                   <div className="grid gap-2">
                     <Label>Przypisz ucznia</Label>
@@ -1077,112 +1211,163 @@ export default function AdminPanel() {
               <CardDescription>{t("admin.template_desc")}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-5 gap-4 items-end mb-6 p-4 bg-muted/30 rounded-lg border">
-                <div>
-                  <Label>{t("admin.day")}</Label>
-                  <Select
-                    value={templateForm.dayOfWeek}
-                    onValueChange={(v) =>
-                      setTemplateForm({ ...templateForm, dayOfWeek: v })
-                    }
+              {/* FORMULARZ DODAWANIA DO SZABLONU */}
+              <div className="grid gap-4 mb-6 p-4 bg-muted/30 rounded-lg border">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <Label>{t("admin.day")}</Label>
+                    <Select
+                      value={templateForm.dayOfWeek}
+                      onValueChange={(v) =>
+                        setTemplateForm({ ...templateForm, dayOfWeek: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">{t("admin.days.1")}</SelectItem>
+                        <SelectItem value="2">{t("admin.days.2")}</SelectItem>
+                        <SelectItem value="3">{t("admin.days.3")}</SelectItem>
+                        <SelectItem value="4">{t("admin.days.4")}</SelectItem>
+                        <SelectItem value="5">{t("admin.days.5")}</SelectItem>
+                        <SelectItem value="6">{t("admin.days.6")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{t("admin.hour")}</Label>
+                    <Input
+                      type="time"
+                      value={templateForm.startTime}
+                      onChange={(e) =>
+                        setTemplateForm({
+                          ...templateForm,
+                          startTime: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>{t("admin.time")}</Label>
+                    <Input
+                      type="number"
+                      value={templateForm.durationMinutes}
+                      onChange={(e) =>
+                        setTemplateForm({
+                          ...templateForm,
+                          durationMinutes: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>{t("admin.price")}</Label>
+                    <Input
+                      type="number"
+                      value={templateForm.price}
+                      onChange={(e) =>
+                        setTemplateForm({
+                          ...templateForm,
+                          price: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>{t("admin.student")}</Label>
+                    <Select
+                      value={templateForm.studentId}
+                      onValueChange={(v) =>
+                        setTemplateForm({ ...templateForm, studentId: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">
+                          {t("admin.student_none")}
+                        </SelectItem>
+                        {users
+                          ?.filter((u) => u.role === "student")
+                          .map((u) => (
+                            <SelectItem key={u.id} value={u.id.toString()}>
+                              {u.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{t("admin.location_type")}</Label>
+                    <Select
+                      value={templateForm.locationType || "onsite"}
+                      onValueChange={(v) =>
+                        setTemplateForm({ ...templateForm, locationType: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="onsite">
+                          {t("admin.loc_onsite")}
+                        </SelectItem>
+                        <SelectItem value="commute">
+                          {t("admin.loc_commute")}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {templateForm.locationType === "commute" && (
+                    <div className="animate-in fade-in slide-in-from-top-2">
+                      <Label>{t("admin.travel_time")}</Label>
+                      <Input
+                        type="number"
+                        value={templateForm.travelMinutes}
+                        onChange={(e) =>
+                          setTemplateForm({
+                            ...templateForm,
+                            travelMinutes: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    className="w-full md:w-auto"
+                    onClick={() => {
+                      createWeeklyItemMutation.mutate({
+                        dayOfWeek: parseInt(templateForm.dayOfWeek),
+                        startTime: templateForm.startTime,
+                        durationMinutes: parseInt(templateForm.durationMinutes),
+                        price: parseInt(templateForm.price),
+                        studentId:
+                          templateForm.studentId === "none"
+                            ? null
+                            : parseInt(templateForm.studentId),
+                        locationType: templateForm.locationType,
+                        travelMinutes:
+                          templateForm.locationType === "commute"
+                            ? parseInt(templateForm.travelMinutes)
+                            : 0,
+                      });
+                    }}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">{t("admin.days.1")}</SelectItem>
-                      <SelectItem value="2">{t("admin.days.2")}</SelectItem>
-                      <SelectItem value="3">{t("admin.days.3")}</SelectItem>
-                      <SelectItem value="4">{t("admin.days.4")}</SelectItem>
-                      <SelectItem value="5">{t("admin.days.5")}</SelectItem>
-                      <SelectItem value="6">{t("admin.days.6")}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("admin.add_btn")}
+                  </Button>
                 </div>
-                <div>
-                  <Label>{t("admin.hour")}</Label>
-                  <Input
-                    type="time"
-                    value={templateForm.startTime}
-                    onChange={(e) =>
-                      setTemplateForm({
-                        ...templateForm,
-                        startTime: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>{t("admin.time")}</Label>
-                  <Input
-                    type="number"
-                    value={templateForm.durationMinutes}
-                    onChange={(e) =>
-                      setTemplateForm({
-                        ...templateForm,
-                        durationMinutes: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>{t("admin.price")}</Label>
-                  <Input
-                    type="number"
-                    value={templateForm.price}
-                    onChange={(e) =>
-                      setTemplateForm({
-                        ...templateForm,
-                        price: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>{t("admin.student")}</Label>
-                  <Select
-                    value={templateForm.studentId}
-                    onValueChange={(v) =>
-                      setTemplateForm({ ...templateForm, studentId: v })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">
-                        {t("admin.student_none")}
-                      </SelectItem>
-                      {users
-                        ?.filter((u) => u.role === "student")
-                        .map((u) => (
-                          <SelectItem key={u.id} value={u.id.toString()}>
-                            {u.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  className="w-full md:w-auto"
-                  onClick={() => {
-                    createWeeklyItemMutation.mutate({
-                      dayOfWeek: parseInt(templateForm.dayOfWeek),
-                      startTime: templateForm.startTime,
-                      durationMinutes: parseInt(templateForm.durationMinutes),
-                      price: parseInt(templateForm.price),
-                      studentId:
-                        templateForm.studentId === "none"
-                          ? null
-                          : parseInt(templateForm.studentId),
-                    });
-                  }}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t("admin.add_btn")}
-                </Button>
               </div>
 
+              {/* LISTA SZABLONÓW */}
               <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((dayNum) => (
                   <div key={dayNum} className="space-y-3">
@@ -1202,16 +1387,25 @@ export default function AdminPanel() {
                         const student = users?.find(
                           (u) => u.id === item.studentId
                         );
+                        const isCommute = item.locationType === "commute";
                         return (
                           <div
                             key={item.id}
                             className="bg-card border rounded p-3 text-sm shadow-sm relative group"
                           >
-                            <div className="font-bold text-lg">
+                            <div className="font-bold text-lg flex justify-between items-center">
                               {item.startTime}
+                              {isCommute && (
+                                <Car className="h-4 w-4 text-orange-600" />
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground mb-2">
                               {item.durationMinutes} min
+                              {isCommute && (
+                                <span className="text-orange-600 ml-1">
+                                  (+{item.travelMinutes} dojazd)
+                                </span>
+                              )}
                             </div>
                             {student ? (
                               <div className="font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
@@ -1285,9 +1479,11 @@ export default function AdminPanel() {
                             ? parseInt(studentIdRaw)
                             : null;
 
-                        // Używamy stanów formularza dla ceny i czasu trwania
                         const durationMinutes = tplFormDuration;
                         const price = tplFormPrice;
+                        const locationType = tplFormLocation;
+                        const travelMinutes =
+                          locationType === "commute" ? tplFormTravel : 0;
 
                         updateWeeklyItemMutation.mutate({
                           id: editingTemplateItem.id,
@@ -1297,6 +1493,8 @@ export default function AdminPanel() {
                             durationMinutes,
                             price,
                             studentId,
+                            locationType,
+                            travelMinutes,
                           },
                         });
                       }}
@@ -1344,9 +1542,29 @@ export default function AdminPanel() {
                         </div>
                       </div>
 
+                      <div className="grid gap-2">
+                        <Label>{t("admin.location_type")}</Label>
+                        <Select
+                          value={tplFormLocation}
+                          onValueChange={setTplFormLocation}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="onsite">
+                              {t("admin.loc_onsite")}
+                            </SelectItem>
+                            <SelectItem value="commute">
+                              {t("admin.loc_commute")}
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
                       <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                          <Label>Czas trwania (min)</Label>
+                          <Label>Czas lekcji (min)</Label>
                           <Input
                             name="durationMinutes"
                             type="number"
@@ -1373,6 +1591,20 @@ export default function AdminPanel() {
                           />
                         </div>
                       </div>
+
+                      {tplFormLocation === "commute" && (
+                        <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                          <Label>Czas dojazdu (min)</Label>
+                          <Input
+                            name="travelMinutes"
+                            type="number"
+                            value={tplFormTravel}
+                            onChange={(e) =>
+                              setTplFormTravel(parseInt(e.target.value) || 0)
+                            }
+                          />
+                        </div>
+                      )}
 
                       <div className="grid gap-2">
                         <Label>Uczeń (stały)</Label>

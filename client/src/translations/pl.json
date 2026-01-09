@@ -149,6 +149,10 @@
     "new_password_placeholder": "Wpisz nowe hasło...",
     "student_deleted": "Uczeń usunięty",
     "delete_confirm_student": "Czy na pewno usunąć tego ucznia? Usunie to również jego historię.",
+    "location_type": "Typ zajęć",
+    "loc_onsite": "Stacjonarnie / Online",
+    "loc_commute": "Z dojazdem",
+    "travel_time": "Czas dojazdu (min)",
     "table": {
       "id": "ID",
       "name": "Imię i Nazwisko",

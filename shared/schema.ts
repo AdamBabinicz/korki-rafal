@@ -32,8 +32,8 @@ export const slots = pgTable("slots", {
   bookedAt: timestamp("booked_at"),
   isPaid: boolean("is_paid").default(false).notNull(),
   topic: text("topic"),
-  // NOWE POLE: Typ lokalizacji (onsite / commute)
-  locationType: text("location_type"),
+  locationType: text("location_type").default("onsite"),
+  travelMinutes: integer("travel_minutes").default(0),
   notes: text("notes"),
   price: integer("price"),
   adminNotes: text("admin_notes"),
@@ -46,6 +46,8 @@ export const weeklySchedule = pgTable("weekly_schedule", {
   durationMinutes: integer("duration_minutes").notNull(),
   studentId: integer("student_id").references(() => users.id),
   price: integer("price").notNull().default(0),
+  locationType: text("location_type").default("onsite"),
+  travelMinutes: integer("travel_minutes").default(0),
 });
 
 export const waitlist = pgTable("waitlist", {
@@ -91,7 +93,8 @@ export const insertSlotSchema = createInsertSchema(slots, {
     bookedAt: true,
     isPaid: true,
     topic: true,
-    locationType: true, // Dodane do inserta
+    locationType: true,
+    travelMinutes: true,
     notes: true,
     price: true,
     adminNotes: true,
@@ -120,11 +123,10 @@ export const generateFromTemplateSchema = z.object({
   endDate: z.string(),
 });
 
-// Aktualizacja schematu rezerwacji
 export const bookSlotSchema = z.object({
   topic: z.string().optional(),
   durationMinutes: z.number().min(30).max(180).default(60),
-  locationType: z.enum(["onsite", "commute"]).default("onsite"), // Nowe pole w żądaniu
+  locationType: z.enum(["onsite", "commute"]).default("onsite"),
 });
 
 export type User = typeof users.$inferSelect;
