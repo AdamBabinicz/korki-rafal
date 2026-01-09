@@ -521,6 +521,26 @@ export default function AdminPanel() {
   const nextWeek = () => setCurrentWeekStart((d) => addWeeks(d, 1));
   const prevWeek = () => setCurrentWeekStart((d) => subWeeks(d, 1));
 
+  // LOGIKA OTWIERANIA MODALA Z ODPOWIEDNIĄ DATĄ
+  const handleOpenAddSlot = () => {
+    // Klonujemy datę startu aktualnie wyświetlanego tygodnia
+    const initDate = new Date(weekStart);
+    // Ustawiamy godzinę na obecną, ale dzień bierzemy z widoku kalendarza (początek tygodnia)
+    const now = new Date();
+    initDate.setHours(now.getHours());
+    initDate.setMinutes(now.getMinutes());
+
+    setNewSlotData({
+      startTime: initDate,
+      duration: 60,
+      price: 80,
+      locationType: "onsite",
+      travelMinutes: 0,
+      studentId: undefined,
+    });
+    setIsAddSlotOpen(true);
+  };
+
   const handleCreateSlot = () => {
     if (!newSlotData.startTime) return;
 
@@ -618,13 +638,12 @@ export default function AdminPanel() {
             </div>
 
             <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+              <Button className="w-full md:w-auto" onClick={handleOpenAddSlot}>
+                <Plus className="mr-2 h-4 w-4" />
+                {t("admin.add_slot_btn")}
+              </Button>
+
               <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
-                <DialogTrigger asChild>
-                  <Button className="w-full md:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    {t("admin.add_slot_btn")}
-                  </Button>
-                </DialogTrigger>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>{t("admin.new_slot_title")}</DialogTitle>
