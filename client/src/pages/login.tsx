@@ -13,7 +13,7 @@ export default function LoginPage() {
   const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false); // Stan dla podglądu hasła
+  const [showPassword, setShowPassword] = useState(false);
 
   const { mutate: login, isPending } = useLogin();
   const { toast } = useToast();
@@ -24,10 +24,16 @@ export default function LoginPage() {
       { username, password },
       {
         onError: (err) => {
+          // Używamy tłumaczeń lub wiadomości z serwera, jeśli brak klucza
+          const message =
+            err.message === "Invalid credentials"
+              ? "Błędny login lub hasło"
+              : "Wystąpił błąd logowania";
+
           toast({
             variant: "destructive",
-            title: "Login failed",
-            description: err.message,
+            title: t("toasts.error") || "Błąd", // Fallback jeśli tłumaczenie nie zadziała
+            description: message,
           });
         },
       }
@@ -35,7 +41,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-secondary/20 via-background to-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-secondary/20 via-background to-background p-4 animate-in fade-in duration-500">
       <Card className="w-full max-w-md border-secondary/20 shadow-2xl shadow-secondary/10">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto w-12 h-12 bg-gradient-to-br from-orange-500 to-primary rounded-xl mb-4 flex items-center justify-center text-white font-bold text-xl shadow-lg">
@@ -54,7 +60,7 @@ export default function LoginPage() {
                 placeholder={t("auth.username_placeholder")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                autoComplete="username" // Naprawa błędu autocomplete
+                autoComplete="username"
               />
             </div>
 
@@ -64,11 +70,11 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   required
-                  type={showPassword ? "text" : "password"} // Obsługa podglądu
+                  type={showPassword ? "text" : "password"}
                   placeholder={t("auth.password_placeholder")}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password" // Naprawa błędu autocomplete
+                  autoComplete="current-password"
                   className="pr-10"
                 />
                 <Button
@@ -102,7 +108,6 @@ export default function LoginPage() {
           </form>
           <div className="mt-6 text-center text-sm text-muted-foreground">
             {t("auth.no_account")}{" "}
-            {/* NAPRAWA BŁĘDU: Usunięto zagnieżdżone <a>, style przeniesione do Link */}
             <Link
               href="/register"
               className="text-orange-500 hover:text-orange-600 font-semibold hover:underline cursor-pointer"

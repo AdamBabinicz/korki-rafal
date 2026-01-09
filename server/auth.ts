@@ -97,8 +97,22 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
-    res.status(200).json(req.user);
+  app.post("/api/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: User, info: any) => {
+      if (err) return next(err);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      req.login(user, (err) => {
+        if (err) return next(err);
+
+        // Zapisanie sesji przed wysłaniem odpowiedzi
+        req.session.save((err) => {
+          if (err) return next(err);
+          return res.status(200).json(user);
+        });
+      });
+    })(req, res, next);
   });
 
   app.post("/api/logout", (req, res, next) => {
@@ -108,7 +122,6 @@ export function setupAuth(app: Express) {
     });
   });
 
-  // NOWY ENDPOINT: Zmiana hasła
   app.post("/api/change-password", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
 
@@ -116,20 +129,15 @@ export function setupAuth(app: Express) {
     const user = req.user as User;
 
     try {
-      // 1. Pobierz aktualnego usera z bazy (dla pewności, że mamy aktualny hash)
       const dbUser = await storage.getUser(user.id);
       if (!dbUser) return res.sendStatus(404);
 
-      // 2. Sprawdź stary hash
       const isValid = await comparePasswords(currentPassword, dbUser.password);
       if (!isValid) {
         return res.status(400).json({ message: "Invalid current password" });
       }
 
-      // 3. Zahaszuj nowe hasło
       const newHashedPassword = await hashPassword(newPassword);
-
-      // 4. Zaktualizuj w bazie
       await storage.updateUser(user.id, { password: newHashedPassword });
 
       res.status(200).json({ message: "Password updated successfully" });
@@ -140,7 +148,6 @@ export function setupAuth(app: Express) {
   });
 
   app.get("/api/user", (req, res) => {
-    // ZMIANA: Zwracamy null (200 OK) zamiast 401, żeby nie śmiecić w konsoli
     if (!req.isAuthenticated()) {
       return res.json(null);
     }
