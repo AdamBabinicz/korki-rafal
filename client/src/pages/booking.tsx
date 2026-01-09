@@ -493,6 +493,11 @@ export default function BookingPage() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>{t("booking.waitlist_title")}</DialogTitle>
+                    {/* Dodano opis dla dostępności (accessibility) */}
+                    <DialogDescription>
+                      {t("booking.waitlist_desc")}{" "}
+                      {format(selectedDate, "d MMMM", { locale: dateLocale })}
+                    </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid gap-2">
