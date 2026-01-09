@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"; // <--- Dodano importy Reacta
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +18,10 @@ export function Footer() {
   // Trzymamy aktualny język w stanie lokalnym, żeby wymusić odświeżenie komponentu
   const [currentLang, setCurrentLang] = useState(i18n.language);
 
+  // Stan dla bezpiecznego adresu email (anty-spam)
+  const [safeEmail, setSafeEmail] = useState("Ładowanie...");
+  const [safeMailto, setSafeMailto] = useState("#");
+
   useEffect(() => {
     // Funkcja obsługująca zmianę języka
     const handleLanguageChange = (lng: string) => {
@@ -26,6 +30,13 @@ export function Footer() {
 
     // Nasłuchujemy na zdarzenie zmiany języka w i18next
     i18n.on("languageChanged", handleLanguageChange);
+
+    // OBFUSKACJA EMAILA (Anty-Spam)
+    // Sklejamy adres dopiero w przeglądarce klienta
+    const user = "rafal.podymniak97";
+    const domain = "gmail.com";
+    setSafeEmail(`${user}@${domain}`);
+    setSafeMailto(`mailto:${user}@${domain}`);
 
     // Sprzątamy po sobie (dobre praktyki Reacta)
     return () => {
@@ -63,16 +74,18 @@ export function Footer() {
               <span>+48 516 283 896</span>
             </a>
 
+            {/* ZABEZPIECZONY ADRES EMAIL */}
             <a
-              href="mailto:rafal.podymniak97@gmail.com"
+              href={safeMailto}
               className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit"
               title="Napisz e-mail"
-              aria-label="Wyślij e-mail na adres rafal.podymniak97@gmail.com"
+              aria-label="Wyślij e-mail"
             >
               <div className="p-2 bg-primary/5 rounded-full">
                 <Mail className="h-4 w-4" />
               </div>
-              <span>rafal.podymniak97@gmail.com</span>
+              {/* Wyświetlamy email dopiero po załadowaniu JS */}
+              <span>{safeEmail}</span>
             </a>
           </div>
 
