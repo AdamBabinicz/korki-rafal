@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useUser, useLogout } from "@/hooks/use-auth";
-import { Button } from "@/components/ui/button"; // Tylko Button
+import { Button } from "@/components/ui/button";
 import { LogOut, Sun, Moon, LogIn } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/hooks/use-theme";
@@ -14,15 +14,18 @@ export function NavBar() {
 
   const { theme, setTheme } = useTheme();
 
+  // Pobieramy sam kod języka (np. "pl" z "pl-PL"), aby logika była spójna
+  const currentLang = i18n.language ? i18n.language.split("-")[0] : "pl";
+
   const toggleLanguage = () => {
-    i18n.changeLanguage(i18n.language === "pl" ? "en" : "pl");
+    const nextLang = currentLang === "pl" ? "en" : "pl";
+    i18n.changeLanguage(nextLang);
   };
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  // Style bazowe przycisku (zamiast importowania wariantów)
   const btnBase =
     "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
   const btnDefault =
@@ -71,19 +74,19 @@ export function NavBar() {
               size="icon"
               onClick={toggleLanguage}
               title={
-                i18n.language === "pl"
+                currentLang === "pl"
                   ? "Switch to English"
                   : "Przełącz na polski"
               }
               aria-label={
-                i18n.language === "pl"
+                currentLang === "pl"
                   ? "Switch to English"
                   : "Przełącz na polski"
               }
               className="w-10 h-10"
             >
               <span className="text-xs font-bold">
-                {i18n.language ? i18n.language.toUpperCase() : "PL"}
+                {currentLang.toUpperCase()}
               </span>
             </Button>
 

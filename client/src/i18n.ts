@@ -13,7 +13,7 @@ i18n
       en: { translation: enTranslation },
     },
     fallbackLng: "pl",
-    // Usunięto 'lng: "pl"', aby detekcja języka i przełącznik działały poprawnie
+    load: "languageOnly",
     interpolation: {
       escapeValue: false,
     },
