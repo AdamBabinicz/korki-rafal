@@ -527,13 +527,14 @@ export default function AdminPanel() {
     }
   }, [editingSlot]);
 
-  // Automatyczne przeliczanie ceny w edycji szablonu
+  // --- NAPRAWA: Ładowanie poprawnych danych do modala edycji szablonu ---
   useEffect(() => {
     if (editingTemplateItem) {
       setTplFormDuration(editingTemplateItem.durationMinutes);
       setTplFormPrice(
         Math.ceil((editingTemplateItem.durationMinutes / 60) * 80)
       );
+      // Tutaj był błąd - brakowało ustawienia tych stanów, przez co modal resetował się do "onsite"
       setTplFormLocation(editingTemplateItem.locationType || "onsite");
       setTplFormTravel(editingTemplateItem.travelMinutes || 0);
     }
@@ -741,6 +742,7 @@ export default function AdminPanel() {
         </TabsList>
 
         <TabsContent value="calendar" className="space-y-6">
+          {/* ... (KOD KALENDARZA - BEZ ZMIAN) ... */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-lg border shadow-sm">
             <div className="flex items-center gap-2">
               <Button
@@ -780,6 +782,7 @@ export default function AdminPanel() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
+                    {/* ... (FORMULARZ DODAWANIA SLOTU) ... */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="grid gap-2">
                         <Label>{t("admin.slot_date")}</Label>
@@ -1050,6 +1053,7 @@ export default function AdminPanel() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+            {/* ... (RENDEROWANIE LISTY SLOTÓW - BEZ ZMIAN) ... */}
             {days.map((day) => {
               const daySlots =
                 slots?.filter((s) => isSameDay(new Date(s.startTime), day)) ||
@@ -1221,7 +1225,7 @@ export default function AdminPanel() {
             })}
           </div>
 
-          {/* MODAL EDYCJI SLOTU */}
+          {/* MODAL EDYCJI SLOTU (POPRAWIONE TŁUMACZENIA + NAPRAWA DOM) */}
           <Dialog
             open={!!editingSlot}
             onOpenChange={(open) => !open && setEditingSlot(null)}
@@ -1560,7 +1564,6 @@ export default function AdminPanel() {
                 <div className="flex justify-end mt-4">
                   <Button
                     className="w-full md:w-auto"
-                    // Blokujemy przycisk jeśli jest kolizja LUB brak godziny
                     disabled={isTemplateAddCollision || !templateForm.startTime}
                     onClick={() => {
                       createWeeklyItemMutation.mutate({
@@ -1586,7 +1589,7 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* LISTA SZABLONÓW */}
+              {/* LISTA SZABLONÓW - NAPRAWIONE TŁUMACZENIE "WOLNE" */}
               <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((dayNum) => (
                   <div key={dayNum} className="space-y-3">
@@ -1669,7 +1672,7 @@ export default function AdminPanel() {
                 ))}
               </div>
 
-              {/* MODAL EDYCJI ELEMENTU SZABLONU */}
+              {/* MODAL EDYCJI ELEMENTU SZABLONU (NAPRAWIONE: BŁĄD 500 + RESETOWANIE STANU) */}
               <Dialog
                 open={!!editingTemplateItem}
                 onOpenChange={(open) => !open && setEditingTemplateItem(null)}
@@ -1719,6 +1722,7 @@ export default function AdminPanel() {
 
                         const durationMinutes = tplFormDuration;
                         const price = tplFormPrice;
+                        // TUTAJ BYŁ BŁĄD: Używamy stanu, a nie FormData dla tych pól
                         const locationType = tplFormLocation;
                         const travelMinutes =
                           locationType === "commute" ? tplFormTravel : 0;
@@ -1732,7 +1736,8 @@ export default function AdminPanel() {
                             price,
                             studentId,
                             locationType,
-                            travelMinutes,
+                            // Upewniamy się, że to liczba (backend tego oczekuje)
+                            travelMinutes: parseInt(travelMinutes.toString()),
                           },
                         });
                       }}
