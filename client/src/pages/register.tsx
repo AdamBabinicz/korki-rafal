@@ -59,6 +59,7 @@ export default function RegisterPage() {
               <Input
                 id="name"
                 required
+                autoFocus
                 placeholder={t("auth.name_placeholder")}
                 value={formData.name}
                 onChange={(e) =>

@@ -15,36 +15,18 @@ export function Footer() {
   const { t, i18n } = useTranslation();
 
   // --- NAPRAWA BRAKU ODŚWIEŻANIA ---
-  // Trzymamy aktualny język w stanie lokalnym, żeby wymusić odświeżenie komponentu
   const [currentLang, setCurrentLang] = useState(i18n.language);
 
-  // Stan dla bezpiecznego adresu email (anty-spam)
-  const [safeEmail, setSafeEmail] = useState("Ładowanie...");
-  const [safeMailto, setSafeMailto] = useState("#");
-
   useEffect(() => {
-    // Funkcja obsługująca zmianę języka
     const handleLanguageChange = (lng: string) => {
       setCurrentLang(lng);
     };
-
-    // Nasłuchujemy na zdarzenie zmiany języka w i18next
     i18n.on("languageChanged", handleLanguageChange);
-
-    // OBFUSKACJA EMAILA (Anty-Spam)
-    // Sklejamy adres dopiero w przeglądarce klienta
-    const user = "rafal.podymniak97";
-    const domain = "gmail.com";
-    setSafeEmail(`${user}@${domain}`);
-    setSafeMailto(`mailto:${user}@${domain}`);
-
-    // Sprzątamy po sobie (dobre praktyki Reacta)
     return () => {
       i18n.off("languageChanged", handleLanguageChange);
     };
   }, [i18n]);
 
-  // Teraz sprawdzamy język na podstawie STANU, który na pewno się zaktualizuje
   const isPL = currentLang?.startsWith("pl");
   // ---------------------------------
 
@@ -52,6 +34,23 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
   const displayDate =
     currentYear > startYear ? `${startYear} - ${currentYear}` : `${startYear}`;
+
+  // --- LOGIKA ANTY-SPAM ---
+  // 1. Dane trzymamy w osobnych kawałkach
+  const userPart = "rafal.podymniak97";
+  const domainPart = "gmail.com";
+
+  // 2. Funkcja, która skleja maila dopiero gdy użytkownik NAJEŻDŻA myszką lub KLIKA
+  const handleEmailInteraction = (
+    e: React.MouseEvent<HTMLAnchorElement> | React.FocusEvent<HTMLAnchorElement>
+  ) => {
+    const link = e.currentTarget;
+    const mailto = `mailto:${userPart}@${domainPart}`;
+    if (link.href !== mailto) {
+      link.href = mailto;
+    }
+  };
+  // ------------------------
 
   return (
     <footer className="w-full border-t bg-background pt-10 pb-8 mt-auto transition-colors duration-300">
@@ -74,18 +73,33 @@ export function Footer() {
               <span>+48 516 283 896</span>
             </a>
 
-            {/* ZABEZPIECZONY ADRES EMAIL */}
+            {/* ZABEZPIECZONY ADRES EMAIL (WERSJA HARDCORE DLA TESTÓW) */}
             <a
-              href={safeMailto}
-              className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit"
+              href="#" // Domyślnie pusty link, bot widzi "#"
+              onClick={handleEmailInteraction}
+              onMouseEnter={handleEmailInteraction}
+              onFocus={handleEmailInteraction}
+              className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit group"
               title="Napisz e-mail"
               aria-label="Wyślij e-mail"
             >
               <div className="p-2 bg-primary/5 rounded-full">
                 <Mail className="h-4 w-4" />
               </div>
-              {/* Wyświetlamy email dopiero po załadowaniu JS */}
-              <span>{safeEmail}</span>
+
+              {/* Tutaj renderujemy e-mail w kawałkach, żeby w kodzie HTML nie było ciągu "x@y.com" */}
+              <span className="flex items-center">
+                <span>{userPart}</span>
+                {/* Ozdobny span z @, oddzielony w DOM */}
+                <span className="px-[1px] text-muted-foreground/80 group-hover:text-primary transition-colors">
+                  @
+                </span>
+                {/* Niewidoczny span mylący proste boty sklejające tekst */}
+                <span className="hidden" aria-hidden="true">
+                  no-spam
+                </span>
+                <span>{domainPart}</span>
+              </span>
             </a>
           </div>
 

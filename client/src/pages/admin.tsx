@@ -590,24 +590,39 @@ export default function AdminPanel() {
 
       <Tabs defaultValue="calendar" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 lg:w-auto h-auto">
-          <TabsTrigger value="calendar" className="py-2">
-            <CalendarIcon className="mr-2 h-4 w-4" />
+          <TabsTrigger
+            value="calendar"
+            className="py-2 h-auto whitespace-normal"
+          >
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
             {t("admin.tab_calendar")}
           </TabsTrigger>
-          <TabsTrigger value="template" className="py-2">
-            <LayoutTemplate className="mr-2 h-4 w-4" />
+          <TabsTrigger
+            value="template"
+            className="py-2 h-auto whitespace-normal"
+          >
+            <LayoutTemplate className="mr-2 h-4 w-4 shrink-0" />
             {t("admin.tab_template")}
           </TabsTrigger>
-          <TabsTrigger value="students" className="py-2">
-            <Users className="mr-2 h-4 w-4" />
+          <TabsTrigger
+            value="students"
+            className="py-2 h-auto whitespace-normal"
+          >
+            <Users className="mr-2 h-4 w-4 shrink-0" />
             {t("admin.tab_students")}
           </TabsTrigger>
-          <TabsTrigger value="requests" className="py-2">
-            <Bell className="mr-2 h-4 w-4" />
+          <TabsTrigger
+            value="requests"
+            className="py-2 h-auto whitespace-normal"
+          >
+            <Bell className="mr-2 h-4 w-4 shrink-0" />
             {t("admin.requests_title")}
           </TabsTrigger>
-          <TabsTrigger value="profile" className="py-2">
-            <UserCog className="mr-2 h-4 w-4" />
+          <TabsTrigger
+            value="profile"
+            className="py-2 h-auto whitespace-normal col-span-2 md:col-span-1"
+          >
+            <UserCog className="mr-2 h-4 w-4 shrink-0" />
             {t("admin.tab_profile")}
           </TabsTrigger>
         </TabsList>

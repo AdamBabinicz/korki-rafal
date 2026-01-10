@@ -57,6 +57,7 @@ export default function LoginPage() {
               <Input
                 id="username"
                 required
+                autoFocus
                 placeholder={t("auth.username_placeholder")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
