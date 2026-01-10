@@ -397,45 +397,53 @@ export async function registerRoutes(
       });
       const entry = await storage.addToWaitlist(input);
 
-      try {
-        const allUsers = await storage.getAllUsers();
-        const admin = allUsers.find((u) => u.role === "admin");
-        const adminEmail = admin?.email || process.env.EMAIL_USER;
-
-        // Email - wysyłamy pełne dane (bezpieczne)
-        if (adminEmail) {
-          await sendWaitlistNotificationToAdmin(
-            adminEmail,
-            user.name,
-            new Date(input.date),
-            input.note
-          );
-        }
-
-        // Telegram - anonimizacja (RODO)
-        const safeName = anonymizeName(user.name, user.id);
-        const formattedDate = format(
-          new Date(input.date),
-          "EEEE, d MMMM yyyy",
-          { locale: pl }
-        );
-        const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
-
-        await sendSafeTelegramAlert(
-          new Date(input.date),
-          `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${safeName}</b> zgłasza chęć lekcji.${noteText}`
-        );
-      } catch (error) {
-        console.error("Błąd wysyłania powiadomień waitlist:", error);
-      }
-
+      // --- OPTYMALIZACJA "FIRE AND FORGET" ---
+      // Najpierw wysyłamy odpowiedź do klienta
       res.status(201).json(entry);
+
+      // A powiadomienia wysyłamy w tle, nie blokując odpowiedzi
+      (async () => {
+        try {
+          const allUsers = await storage.getAllUsers();
+          const admin = allUsers.find((u) => u.role === "admin");
+          const adminEmail = admin?.email || process.env.EMAIL_USER;
+
+          if (adminEmail) {
+            await sendWaitlistNotificationToAdmin(
+              adminEmail,
+              user.name,
+              new Date(input.date),
+              input.note
+            );
+          }
+
+          const safeName = anonymizeName(user.name, user.id);
+          const formattedDate = format(
+            new Date(input.date),
+            "EEEE, d MMMM yyyy",
+            { locale: pl }
+          );
+          const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
+
+          await sendSafeTelegramAlert(
+            new Date(input.date),
+            `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${safeName}</b> zgłasza chęć lekcji.${noteText}`
+          );
+        } catch (error) {
+          console.error("Błąd tła (Waitlist notifications):", error);
+        }
+      })();
+      // ---------------------------------------
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.issues[0].message });
       }
       console.error("[WAITLIST ERROR]", err);
-      res.status(500).json({ message: "Server error" });
+      // Jeśli błąd wystąpił PRZED wysłaniem odpowiedzi, zwracamy 500.
+      // Jeśli po, Express zignoruje ten wpis (headers already sent).
+      if (!res.headersSent) {
+        res.status(500).json({ message: "Server error" });
+      }
     }
   });
 
@@ -454,7 +462,7 @@ export async function registerRoutes(
   });
 
   // --- GENERATORY ---
-
+  // (Generatory mogą trwać długo, tu zostawiamy await, bo to operacja administracyjna)
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -564,7 +572,7 @@ export async function registerRoutes(
     if (!req.isAuthenticated() || user.role !== "admin") {
       return res.status(403).send("Unauthorized");
     }
-
+    // ... (kod generatora bez zmian - to operacja rzadka i może trwać)
     console.log("[GENERATOR] Start generowania z szablonu...");
     try {
       const { startDate, endDate } = generateFromTemplateSchema.parse(req.body);
@@ -683,7 +691,7 @@ export async function registerRoutes(
     }
   });
 
-  // --- REZERWACJA / ANULOWANIE ---
+  // --- REZERWACJA / ANULOWANIE (ZOPTYMALIZOWANE) ---
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
@@ -702,6 +710,7 @@ export async function registerRoutes(
       const totalOccupiedMinutes = durationMinutes + travelBuffer;
       const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
 
+      // Sprawdzanie kolizji
       const potentialCollisions = await db
         .select()
         .from(slots)
@@ -735,6 +744,7 @@ export async function registerRoutes(
         travelMinutes: travelBuffer,
       });
 
+      // Usuwanie pustych slotów pod spodem
       for (const collision of potentialCollisions) {
         if (collision.endTime <= newEndTime) {
           await storage.deleteSlot(collision.id);
@@ -748,44 +758,50 @@ export async function registerRoutes(
         }
       }
 
-      if (user.email) {
-        await sendBookingConfirmation(
-          user.email,
-          new Date(slot.startTime),
-          topic || "Matematyka"
-        );
-      }
-
-      try {
-        const allUsers = await storage.getAllUsers();
-        const admin = allUsers.find((u) => u.role === "admin");
-
-        if (admin && admin.email) {
-          await sendNewBookingNotificationToAdmin(
-            admin.email,
-            user.name,
-            new Date(slot.startTime),
-            topic || "Matematyka"
-          );
-        }
-
-        // Telegram - anonimizacja
-        const safeName = anonymizeName(user.name, user.id);
-        await sendSafeTelegramAlert(
-          new Date(slot.startTime),
-          `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`
-        );
-      } catch (adminNotifyErr) {
-        console.error("Błąd powiadomień dla admina:", adminNotifyErr);
-      }
-
+      // --- OPTYMALIZACJA "FIRE AND FORGET" ---
+      // Odpowiadamy klientowi natychmiast
       res.json(updated);
+
+      // Powiadomienia w tle
+      (async () => {
+        try {
+          if (user.email) {
+            await sendBookingConfirmation(
+              user.email,
+              new Date(slot.startTime),
+              topic || "Matematyka"
+            );
+          }
+
+          const allUsers = await storage.getAllUsers();
+          const admin = allUsers.find((u) => u.role === "admin");
+          if (admin && admin.email) {
+            await sendNewBookingNotificationToAdmin(
+              admin.email,
+              user.name,
+              new Date(slot.startTime),
+              topic || "Matematyka"
+            );
+          }
+
+          const safeName = anonymizeName(user.name, user.id);
+          await sendSafeTelegramAlert(
+            new Date(slot.startTime),
+            `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`
+          );
+        } catch (bgError) {
+          console.error("Błąd tła (Booking notifications):", bgError);
+        }
+      })();
+      // ---------------------------------------
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.issues[0].message });
       }
       console.error(err);
-      res.status(500).send("Error booking slot");
+      if (!res.headersSent) {
+        res.status(500).send("Error booking slot");
+      }
     }
   });
 
@@ -810,7 +826,6 @@ export async function registerRoutes(
           now
         );
         const minutesSinceBooking = differenceInMinutes(now, bookedAt);
-
         const GRACE_PERIOD_MINUTES = 30;
 
         if (
@@ -835,61 +850,62 @@ export async function registerRoutes(
 
       console.log(`[SLOT] Termin ${id} został zwolniony.`);
 
-      try {
-        const allUsers = await storage.getAllUsers();
-
-        const studentEmails = allUsers
-          .filter(
-            (u) =>
-              u.role === "student" &&
-              u.id !== user.id &&
-              u.email &&
-              u.email.includes("@")
-          )
-          .map((u) => u.email as string);
-
-        const admin = allUsers.find((u) => u.role === "admin");
-        const adminEmail = admin?.email || process.env.EMAIL_USER;
-
-        await broadcastFreeSlot(
-          studentEmails,
-          new Date(slot.startTime),
-          undefined
-        );
-
-        // Telegram - anonimizacja
-        const safeName = anonymizeName(user.name, user.id);
-        await sendSafeTelegramAlert(
-          new Date(slot.startTime),
-          `❌ <b>Anulowano rezerwację!</b>\nUczeń: <b>${safeName}</b>\nTermin zwolniony.`
-        );
-
-        if (user.email) {
-          await sendCancellationConfirmation(
-            user.email,
-            new Date(slot.startTime),
-            user.name
-          );
-        }
-
-        if (adminEmail) {
-          await sendCancellationNotificationToAdmin(
-            adminEmail,
-            user.name,
-            new Date(slot.startTime)
-          );
-        }
-      } catch (notifyError) {
-        console.error(
-          "Błąd podczas wysyłania powiadomień (nie blokuje anulowania):",
-          notifyError
-        );
-      }
-
+      // --- OPTYMALIZACJA "FIRE AND FORGET" ---
       res.json(updated);
+
+      (async () => {
+        try {
+          const allUsers = await storage.getAllUsers();
+          const studentEmails = allUsers
+            .filter(
+              (u) =>
+                u.role === "student" &&
+                u.id !== user.id &&
+                u.email &&
+                u.email.includes("@")
+            )
+            .map((u) => u.email as string);
+
+          const admin = allUsers.find((u) => u.role === "admin");
+          const adminEmail = admin?.email || process.env.EMAIL_USER;
+
+          await broadcastFreeSlot(
+            studentEmails,
+            new Date(slot.startTime),
+            undefined
+          );
+
+          const safeName = anonymizeName(user.name, user.id);
+          await sendSafeTelegramAlert(
+            new Date(slot.startTime),
+            `❌ <b>Anulowano rezerwację!</b>\nUczeń: <b>${safeName}</b>\nTermin zwolniony.`
+          );
+
+          if (user.email) {
+            await sendCancellationConfirmation(
+              user.email,
+              new Date(slot.startTime),
+              user.name
+            );
+          }
+
+          if (adminEmail) {
+            await sendCancellationNotificationToAdmin(
+              adminEmail,
+              user.name,
+              new Date(slot.startTime)
+            );
+          }
+        } catch (bgError) {
+          console.error("Błąd tła (Cancellation notifications):", bgError);
+        }
+      })();
+      // ---------------------------------------
     } catch (err) {
       console.error(err);
-      res.status(500).send("Error cancelling slot");
+      if (!res.headersSent) {
+        res.status(500).send("Error cancelling slot");
+      }
     }
   });
 

@@ -11,6 +11,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   format,
   startOfWeek,
@@ -80,6 +81,7 @@ const isPublicHoliday = (date: Date) => {
 export default function BookingPage() {
   const { data: user } = useUser();
   const { t, i18n } = useTranslation();
+  const queryClient = useQueryClient();
 
   const dateLocale = i18n.language?.toLowerCase().startsWith("pl") ? pl : enUS;
 
@@ -91,6 +93,12 @@ export default function BookingPage() {
   const weekStart = currentWeekStart;
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   weekEnd.setHours(23, 59, 59, 999);
+
+  // KLUCZ ZAPYTANIA (Musi być identyczny jak w hooku useSlots)
+  const queryKey = [
+    "/api/slots",
+    { start: weekStart.toISOString(), end: weekEnd.toISOString() },
+  ];
 
   const { data: slots, isLoading } = useSlots({
     start: weekStart.toISOString(),
@@ -158,8 +166,38 @@ export default function BookingPage() {
     setIsBookingOpen(true);
   };
 
-  const handleConfirmBooking = () => {
+  // --- NAPRAWA LOGIKI REZERWACJI ---
+  const handleConfirmBooking = async () => {
     if (!bookingSlot) return;
+
+    // 1. Zamykamy modal NATYCHMIAST
+    setIsBookingOpen(false);
+
+    // 2. Ręczne Optymistyczne Update (zamiast onMutate w mutate())
+    // Anulujemy trwające odświeżanie
+    await queryClient.cancelQueries({ queryKey });
+
+    // Zapisujemy poprzedni stan (migawka)
+    const previousSlots = queryClient.getQueryData<Slot[]>(queryKey);
+
+    // Aktualizujemy cache "na brudno"
+    queryClient.setQueryData<Slot[]>(queryKey, (old) => {
+      if (!old) return [];
+      return old.map((slot) => {
+        if (slot.id === bookingSlot.id) {
+          // Udajemy, że slot jest już zajęty przez nas
+          return {
+            ...slot,
+            isBooked: true,
+            studentId: user?.id || 0,
+            topic: bookingTopic || "Matematyka",
+          } as Slot;
+        }
+        return slot;
+      });
+    });
+
+    // 3. Właściwe wywołanie serwera
     bookSlotMutation.mutate(
       {
         id: bookingSlot.id,
@@ -168,15 +206,60 @@ export default function BookingPage() {
         topic: bookingTopic,
       },
       {
-        onSuccess: () => setIsBookingOpen(false),
+        onError: () => {
+          // W razie błędu cofamy zmiany z migawki
+          if (previousSlots) {
+            queryClient.setQueryData(queryKey, previousSlots);
+          }
+          // I otwieramy modal z powrotem z informacją o błędzie (opcjonalnie)
+          setIsBookingOpen(true);
+        },
+        onSettled: () => {
+          // Na koniec odświeżamy dane z serwera dla pewności
+          queryClient.invalidateQueries({ queryKey });
+        },
       }
     );
   };
 
-  const handleConfirmCancel = () => {
+  // --- NAPRAWA LOGIKI ANULOWANIA ---
+  const handleConfirmCancel = async () => {
     if (!slotToCancel) return;
-    cancelSlotMutation.mutate(slotToCancel.id, {
-      onSuccess: () => setSlotToCancel(null),
+
+    const idToCancel = slotToCancel.id;
+    // 1. Zamykamy modal
+    setSlotToCancel(null);
+
+    // 2. Ręczne Optymistyczne Update
+    await queryClient.cancelQueries({ queryKey });
+    const previousSlots = queryClient.getQueryData<Slot[]>(queryKey);
+
+    queryClient.setQueryData<Slot[]>(queryKey, (old) => {
+      if (!old) return [];
+      return old.map((slot) => {
+        if (slot.id === idToCancel) {
+          // Udajemy, że slot jest wolny
+          return {
+            ...slot,
+            isBooked: false,
+            studentId: null,
+            topic: null,
+          } as Slot;
+        }
+        return slot;
+      });
+    });
+
+    // 3. Wywołanie serwera
+    cancelSlotMutation.mutate(idToCancel, {
+      onError: () => {
+        if (previousSlots) {
+          queryClient.setQueryData(queryKey, previousSlots);
+        }
+      },
+      onSettled: () => {
+        queryClient.invalidateQueries({ queryKey });
+      },
     });
   };
 
