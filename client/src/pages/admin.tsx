@@ -1053,7 +1053,6 @@ export default function AdminPanel() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-            {/* ... (RENDEROWANIE LISTY SLOTÓW - BEZ ZMIAN) ... */}
             {days.map((day) => {
               const daySlots =
                 slots?.filter((s) => isSameDay(new Date(s.startTime), day)) ||
@@ -1417,7 +1416,7 @@ export default function AdminPanel() {
               <CardDescription>{t("admin.template_desc")}</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* FORMULARZ DODAWANIA DO SZABLONU */}
+              {/* FORMULARZ DODAWANIA DO SZABLONU (POPRAWIONE) */}
               <div className="grid gap-4 mb-6 p-4 bg-muted/30 rounded-lg border">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
@@ -1589,7 +1588,7 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* LISTA SZABLONÓW - NAPRAWIONE TŁUMACZENIE "WOLNE" */}
+              {/* LISTA SZABLONÓW - BEZ ZMIAN */}
               <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
                 {[1, 2, 3, 4, 5, 6].map((dayNum) => (
                   <div key={dayNum} className="space-y-3">
@@ -1672,7 +1671,7 @@ export default function AdminPanel() {
                 ))}
               </div>
 
-              {/* MODAL EDYCJI ELEMENTU SZABLONU (NAPRAWIONE: BŁĄD 500 + RESETOWANIE STANU) */}
+              {/* MODAL EDYCJI ELEMENTU SZABLONU (DODANE KOLIZJE I IKONKI) */}
               <Dialog
                 open={!!editingTemplateItem}
                 onOpenChange={(open) => !open && setEditingTemplateItem(null)}
@@ -1706,10 +1705,11 @@ export default function AdminPanel() {
                           return;
                         }
 
+                        // USUNIĘTO ODCZYTYWANIE dayOfWeek z FormData (bo jest disabled)
+                        // Pobieramy dayOfWeek bezpośrednio z obiektu
+                        const dayOfWeek = editingTemplateItem.dayOfWeek;
+
                         const formData = new FormData(e.currentTarget);
-                        const dayOfWeek = parseInt(
-                          formData.get("dayOfWeek") as string
-                        );
                         const startTime = formData.get("startTime") as string;
                         const studentIdRaw = formData.get(
                           "studentId"
@@ -1722,8 +1722,8 @@ export default function AdminPanel() {
 
                         const durationMinutes = tplFormDuration;
                         const price = tplFormPrice;
-                        // TUTAJ BYŁ BŁĄD: Używamy stanu, a nie FormData dla tych pól
                         const locationType = tplFormLocation;
+                        // Rzutowanie na liczbę dla pewności (zmienna ze stanu)
                         const travelMinutes =
                           locationType === "commute" ? tplFormTravel : 0;
 
@@ -1736,7 +1736,6 @@ export default function AdminPanel() {
                             price,
                             studentId,
                             locationType,
-                            // Upewniamy się, że to liczba (backend tego oczekuje)
                             travelMinutes: parseInt(travelMinutes.toString()),
                           },
                         });
