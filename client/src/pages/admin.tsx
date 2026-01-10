@@ -11,6 +11,8 @@ import {
   addMinutes,
   isSunday,
   differenceInMinutes,
+  setHours,
+  setMinutes,
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import {
@@ -28,6 +30,7 @@ import {
   XCircle,
   Car,
   Bell,
+  AlertTriangle,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -437,6 +440,7 @@ export default function AdminPanel() {
   const [editingTemplateItem, setEditingTemplateItem] =
     useState<WeeklySchedule | null>(null);
 
+  const [editFormTime, setEditFormTime] = useState("");
   const [editFormDuration, setEditFormDuration] = useState(60);
   const [editFormPrice, setEditFormPrice] = useState(80);
   const [editFormLocation, setEditFormLocation] = useState("onsite");
@@ -502,6 +506,7 @@ export default function AdminPanel() {
       const travel = editingSlot.travelMinutes || 0;
       const lessonDuration = totalDuration - travel;
 
+      setEditFormTime(format(new Date(editingSlot.startTime), "HH:mm"));
       setEditFormDuration(lessonDuration > 0 ? lessonDuration : 60);
       setEditFormPrice(editingSlot.price || 80);
       setEditFormLocation(editingSlot.locationType || "onsite");
@@ -520,6 +525,62 @@ export default function AdminPanel() {
 
   const nextWeek = () => setCurrentWeekStart((d) => addWeeks(d, 1));
   const prevWeek = () => setCurrentWeekStart((d) => subWeeks(d, 1));
+
+  // --- LOGIKA SPRAWDZANIA KOLIZJI DLA ADMINA ---
+  const checkCollision = (
+    start: Date,
+    duration: number,
+    locType: string,
+    travel: number,
+    excludeSlotId?: number
+  ) => {
+    if (!slots) return false;
+
+    // Całkowity czas zajętości (lekcja + dojazd)
+    const extraTime = locType === "commute" ? travel : 0;
+    const totalMinutes = duration + extraTime;
+    const end = addMinutes(start, totalMinutes);
+
+    return slots.some((s) => {
+      // Pomijamy ten sam slot (przy edycji)
+      if (excludeSlotId && s.id === excludeSlotId) return false;
+
+      const sStart = new Date(s.startTime);
+      const sEnd = new Date(s.endTime);
+
+      // Sprawdzenie nakładania się (Overlap: StartA < EndB && EndA > StartB)
+      return start < sEnd && end > sStart;
+    });
+  };
+
+  // --- Sprawdzenie kolizji dla "Nowego Slotu" ---
+  const isAddCollision = (() => {
+    if (!newSlotData.startTime) return false;
+    return checkCollision(
+      newSlotData.startTime,
+      newSlotData.duration || 60,
+      newSlotData.locationType || "onsite",
+      newSlotData.travelMinutes || 0
+    );
+  })();
+
+  // --- Sprawdzenie kolizji dla "Edycji Slotu" ---
+  const isEditCollision = (() => {
+    if (!editingSlot || !editFormTime) return false;
+    const [h, m] = editFormTime.split(":").map(Number);
+    if (isNaN(h) || isNaN(m)) return false;
+
+    const proposedStart = new Date(editingSlot.startTime);
+    proposedStart.setHours(h, m, 0, 0);
+
+    return checkCollision(
+      proposedStart,
+      editFormDuration,
+      editFormLocation,
+      editFormTravel,
+      editingSlot.id
+    );
+  })();
 
   // LOGIKA OTWIERANIA MODALA Z ODPOWIEDNIĄ DATĄ
   const handleOpenAddSlot = () => {
@@ -543,6 +604,16 @@ export default function AdminPanel() {
 
   const handleCreateSlot = () => {
     if (!newSlotData.startTime) return;
+
+    // Podwójne sprawdzenie (choć guzik powinien być zablokowany)
+    if (isAddCollision) {
+      toast({
+        variant: "destructive",
+        title: "Błąd",
+        description: "Wykryto kolizję z innym terminem!",
+      });
+      return;
+    }
 
     const travel =
       newSlotData.locationType === "commute"
@@ -816,9 +887,25 @@ export default function AdminPanel() {
                         </SelectContent>
                       </Select>
                     </div>
+
+                    {/* OSTRZEŻENIE O KOLIZJI */}
+                    {isAddCollision && (
+                      <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md animate-in fade-in slide-in-from-bottom-2">
+                        <AlertTriangle className="h-5 w-5 shrink-0" />
+                        <span className="text-sm font-semibold">
+                          {t(
+                            "admin.collision_detected",
+                            "⚠️ Wykryto kolizję z innym terminem!"
+                          )}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <DialogFooter>
-                    <Button onClick={handleCreateSlot}>
+                    <Button
+                      onClick={handleCreateSlot}
+                      disabled={isAddCollision}
+                    >
                       {t("admin.save")}
                     </Button>
                   </DialogFooter>
@@ -1109,9 +1196,11 @@ export default function AdminPanel() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
+                    if (isEditCollision) return; // Blokada submitu jeśli kolizja
+
                     const formData = new FormData(e.currentTarget);
                     const studentIdRaw = formData.get("studentId") as string;
-                    const timeRaw = formData.get("time") as string;
+                    const timeRaw = editFormTime; // Bierzemy ze stanu
 
                     const studentId =
                       studentIdRaw && studentIdRaw !== "none"
@@ -1160,10 +1249,8 @@ export default function AdminPanel() {
                       <Input
                         name="time"
                         type="time"
-                        defaultValue={format(
-                          new Date(editingSlot.startTime),
-                          "HH:mm"
-                        )}
+                        value={editFormTime}
+                        onChange={(e) => setEditFormTime(e.target.value)}
                       />
                     </div>
                     <div className="grid gap-2">
@@ -1175,7 +1262,8 @@ export default function AdminPanel() {
                         onChange={(e) => {
                           const val = parseInt(e.target.value) || 0;
                           setEditFormDuration(val);
-                          const calculatedPrice = Math.round((val / 60) * 80);
+                          // Przeliczanie ceny przy edycji
+                          const calculatedPrice = Math.ceil((val / 60) * 80);
                           setEditFormPrice(calculatedPrice);
                         }}
                       />
@@ -1246,8 +1334,24 @@ export default function AdminPanel() {
                       }
                     />
                   </div>
+
+                  {/* OSTRZEŻENIE O KOLIZJI W EDYCJI */}
+                  {isEditCollision && (
+                    <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md animate-in fade-in slide-in-from-bottom-2">
+                      <AlertTriangle className="h-5 w-5 shrink-0" />
+                      <span className="text-sm font-semibold">
+                        {t(
+                          "admin.collision_detected",
+                          "⚠️ Wykryto kolizję z innym terminem!"
+                        )}
+                      </span>
+                    </div>
+                  )}
+
                   <DialogFooter>
-                    <Button type="submit">Zapisz zmiany</Button>
+                    <Button type="submit" disabled={isEditCollision}>
+                      Zapisz zmiany
+                    </Button>
                   </DialogFooter>
                 </form>
               )}
