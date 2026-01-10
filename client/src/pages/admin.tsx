@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   format,
@@ -31,6 +31,7 @@ import {
   Car,
   Bell,
   AlertTriangle,
+  MapPin,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +100,13 @@ const isPublicHoliday = (date: Date) => {
   if (year === 2026 && ["04-05", "04-06", "06-04"].includes(dateString))
     return true;
   return false;
+};
+
+// Pomocnicza funkcja do zamiany "HH:mm" na minuty od północy
+const timeToMinutes = (timeStr: string) => {
+  if (!timeStr) return 0;
+  const [h, m] = timeStr.split(":").map(Number);
+  return h * 60 + m;
 };
 
 export default function AdminPanel() {
@@ -186,12 +194,12 @@ export default function AdminPanel() {
       setAdminProfileForm((prev) => ({ ...prev, password: "" }));
       toast({
         title: t("dashboard.save_changes"),
-        description: "Dane profilu zostały zaktualizowane.",
+        description: t("toasts.success"),
       });
     },
     onError: (error: Error) => {
       toast({
-        title: "Błąd",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -206,8 +214,8 @@ export default function AdminPanel() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
       toast({
-        title: "Sukces",
-        description: "Dodano nowy termin.",
+        title: t("toasts.success"),
+        description: t("toasts.slot_created"),
       });
       setIsAddSlotOpen(false);
 
@@ -241,14 +249,14 @@ export default function AdminPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
       toast({
-        title: "Zaktualizowano termin",
-        description: "Zmiany zostały zapisane.",
+        title: t("toasts.slot_updated"),
+        description: t("toasts.success"),
       });
       setEditingSlot(null);
     },
     onError: (error: Error) => {
       toast({
-        title: "Błąd",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -262,12 +270,12 @@ export default function AdminPanel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/weekly-schedule"] });
-      toast({ title: "Zaktualizowano szablon" });
+      toast({ title: t("toasts.success") });
       setEditingTemplateItem(null);
     },
     onError: (error: Error) => {
       toast({
-        title: "Błąd",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -281,8 +289,8 @@ export default function AdminPanel() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
       toast({
-        title: "Usunięto",
-        description: "Termin został całkowicie usunięty z grafiku.",
+        title: t("toasts.slot_deleted"),
+        description: t("toasts.success"),
       });
 
       const formattedDate = format(variables.date, "EEEE, d MMMM yyyy, HH:mm", {
@@ -304,8 +312,8 @@ export default function AdminPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
       toast({
-        title: "Odwołano",
-        description: "Rezerwacja została odwołana, termin jest wolny.",
+        title: t("toasts.cancel_success"),
+        description: t("toasts.cancel_desc"),
       });
     },
   });
@@ -343,6 +351,8 @@ export default function AdminPanel() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/weekly-schedule"] });
       toast({ title: t("admin.template_added") });
+      // Czyścimy pole godziny po dodaniu, aby uniknąć kolizji przy kolejnym wejściu
+      setTemplateForm((prev) => ({ ...prev, startTime: "" }));
     },
   });
 
@@ -373,7 +383,7 @@ export default function AdminPanel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({ title: "Dodano ucznia" });
+      toast({ title: t("toasts.success") });
       setIsAddStudentOpen(false);
 
       sendTelegramNotification(
@@ -384,7 +394,7 @@ export default function AdminPanel() {
     },
     onError: (err: Error) => {
       toast({
-        title: "Błąd",
+        title: t("toasts.error"),
         description: err.message,
         variant: "destructive",
       });
@@ -404,12 +414,12 @@ export default function AdminPanel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      toast({ title: "Zaktualizowano dane ucznia" });
+      toast({ title: t("toasts.success") });
       setEditingStudentId(null);
     },
     onError: (error: Error) => {
       toast({
-        title: "Błąd zapisu",
+        title: t("toasts.error"),
         description: error.message,
         variant: "destructive",
       });
@@ -471,9 +481,10 @@ export default function AdminPanel() {
     defaultPrice: 80,
   });
 
+  // --- ZMIANA: startTime domyślnie pusty, aby uniknąć kolizji na starcie ---
   const [templateForm, setTemplateForm] = useState({
     dayOfWeek: "1",
-    startTime: "16:00",
+    startTime: "", // Było "16:00"
     durationMinutes: "60",
     price: "80",
     studentId: "none",
@@ -497,6 +508,7 @@ export default function AdminPanel() {
     }
   }, [user]);
 
+  // Automatyczne przeliczanie ceny w edycji slotu
   useEffect(() => {
     if (editingSlot) {
       const totalDuration = differenceInMinutes(
@@ -505,19 +517,23 @@ export default function AdminPanel() {
       );
       const travel = editingSlot.travelMinutes || 0;
       const lessonDuration = totalDuration - travel;
+      const finalDuration = lessonDuration > 0 ? lessonDuration : 60;
 
       setEditFormTime(format(new Date(editingSlot.startTime), "HH:mm"));
-      setEditFormDuration(lessonDuration > 0 ? lessonDuration : 60);
-      setEditFormPrice(editingSlot.price || 80);
+      setEditFormDuration(finalDuration);
+      setEditFormPrice(Math.ceil((finalDuration / 60) * 80));
       setEditFormLocation(editingSlot.locationType || "onsite");
       setEditFormTravel(travel);
     }
   }, [editingSlot]);
 
+  // Automatyczne przeliczanie ceny w edycji szablonu
   useEffect(() => {
     if (editingTemplateItem) {
       setTplFormDuration(editingTemplateItem.durationMinutes);
-      setTplFormPrice(editingTemplateItem.price || 80);
+      setTplFormPrice(
+        Math.ceil((editingTemplateItem.durationMinutes / 60) * 80)
+      );
       setTplFormLocation(editingTemplateItem.locationType || "onsite");
       setTplFormTravel(editingTemplateItem.travelMinutes || 0);
     }
@@ -526,7 +542,7 @@ export default function AdminPanel() {
   const nextWeek = () => setCurrentWeekStart((d) => addWeeks(d, 1));
   const prevWeek = () => setCurrentWeekStart((d) => subWeeks(d, 1));
 
-  // --- LOGIKA SPRAWDZANIA KOLIZJI DLA ADMINA ---
+  // --- LOGIKA KOLIZJI DLA POJEDYNCZYCH SLOTÓW ---
   const checkCollision = (
     start: Date,
     duration: number,
@@ -535,25 +551,18 @@ export default function AdminPanel() {
     excludeSlotId?: number
   ) => {
     if (!slots) return false;
-
-    // Całkowity czas zajętości (lekcja + dojazd)
     const extraTime = locType === "commute" ? travel : 0;
     const totalMinutes = duration + extraTime;
     const end = addMinutes(start, totalMinutes);
 
     return slots.some((s) => {
-      // Pomijamy ten sam slot (przy edycji)
       if (excludeSlotId && s.id === excludeSlotId) return false;
-
       const sStart = new Date(s.startTime);
       const sEnd = new Date(s.endTime);
-
-      // Sprawdzenie nakładania się (Overlap: StartA < EndB && EndA > StartB)
       return start < sEnd && end > sStart;
     });
   };
 
-  // --- Sprawdzenie kolizji dla "Nowego Slotu" ---
   const isAddCollision = (() => {
     if (!newSlotData.startTime) return false;
     return checkCollision(
@@ -564,7 +573,6 @@ export default function AdminPanel() {
     );
   })();
 
-  // --- Sprawdzenie kolizji dla "Edycji Slotu" ---
   const isEditCollision = (() => {
     if (!editingSlot || !editFormTime) return false;
     const [h, m] = editFormTime.split(":").map(Number);
@@ -582,11 +590,46 @@ export default function AdminPanel() {
     );
   })();
 
-  // LOGIKA OTWIERANIA MODALA Z ODPOWIEDNIĄ DATĄ
+  // --- LOGIKA KOLIZJI DLA SZABLONU ---
+  const checkTemplateCollision = (
+    dayOfWeek: number,
+    startTimeStr: string,
+    duration: number,
+    locType: string,
+    travel: number,
+    excludeId?: number
+  ) => {
+    if (!weeklySchedule || !startTimeStr) return false;
+
+    const proposedStartMin = timeToMinutes(startTimeStr);
+    const extraTime = locType === "commute" ? travel : 0;
+    const proposedEndMin = proposedStartMin + duration + extraTime;
+
+    return weeklySchedule.some((item) => {
+      if (item.dayOfWeek !== dayOfWeek) return false;
+      if (excludeId && item.id === excludeId) return false;
+
+      const itemStartMin = timeToMinutes(item.startTime);
+      const itemExtra =
+        item.locationType === "commute" ? item.travelMinutes || 0 : 0;
+      const itemEndMin = itemStartMin + item.durationMinutes + itemExtra;
+
+      return proposedStartMin < itemEndMin && proposedEndMin > itemStartMin;
+    });
+  };
+
+  const isTemplateAddCollision = useMemo(() => {
+    return checkTemplateCollision(
+      parseInt(templateForm.dayOfWeek),
+      templateForm.startTime,
+      parseInt(templateForm.durationMinutes),
+      templateForm.locationType || "onsite",
+      parseInt(templateForm.travelMinutes || "0")
+    );
+  }, [templateForm, weeklySchedule]);
+
   const handleOpenAddSlot = () => {
-    // Klonujemy datę startu aktualnie wyświetlanego tygodnia
     const initDate = new Date(weekStart);
-    // Ustawiamy godzinę na obecną, ale dzień bierzemy z widoku kalendarza (początek tygodnia)
     const now = new Date();
     initDate.setHours(now.getHours());
     initDate.setMinutes(now.getMinutes());
@@ -605,12 +648,11 @@ export default function AdminPanel() {
   const handleCreateSlot = () => {
     if (!newSlotData.startTime) return;
 
-    // Podwójne sprawdzenie (choć guzik powinien być zablokowany)
     if (isAddCollision) {
       toast({
         variant: "destructive",
-        title: "Błąd",
-        description: "Wykryto kolizję z innym terminem!",
+        title: t("toasts.error"),
+        description: t("admin.collision_detected"),
       });
       return;
     }
@@ -833,10 +875,16 @@ export default function AdminPanel() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="onsite">
-                            {t("admin.loc_onsite")}
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-primary" />
+                              {t("admin.loc_onsite")}
+                            </div>
                           </SelectItem>
                           <SelectItem value="commute">
-                            {t("admin.loc_commute")}
+                            <div className="flex items-center gap-2">
+                              <Car className="h-4 w-4 text-orange-500" />
+                              {t("admin.loc_commute")}
+                            </div>
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -873,7 +921,9 @@ export default function AdminPanel() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Wybierz ucznia" />
+                          <SelectValue
+                            placeholder={t("admin.select_student")}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="none">-- Brak --</SelectItem>
@@ -888,15 +938,11 @@ export default function AdminPanel() {
                       </Select>
                     </div>
 
-                    {/* OSTRZEŻENIE O KOLIZJI */}
                     {isAddCollision && (
                       <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md animate-in fade-in slide-in-from-bottom-2">
                         <AlertTriangle className="h-5 w-5 shrink-0" />
                         <span className="text-sm font-semibold">
-                          {t(
-                            "admin.collision_detected",
-                            "⚠️ Wykryto kolizję z innym terminem!"
-                          )}
+                          {t("admin.collision_detected")}
                         </span>
                       </div>
                     )}
@@ -1081,8 +1127,8 @@ export default function AdminPanel() {
                                       size="icon"
                                       className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
                                       onClick={() => setEditingSlot(slot)}
-                                      title="Edytuj termin / Przypisz ucznia"
-                                      aria-label="Edytuj termin"
+                                      title={t("admin.edit_slot_title")}
+                                      aria-label={t("admin.edit_slot_title")}
                                     >
                                       <Pencil className="h-3 w-3" />
                                     </Button>
@@ -1096,14 +1142,14 @@ export default function AdminPanel() {
                                       onClick={() => {
                                         if (
                                           window.confirm(
-                                            "Czy na pewno chcesz odwołać tę lekcję (zwolnić termin)? Uczeń zostanie powiadomiony."
+                                            t("booking.cancel_desc")
                                           )
                                         ) {
                                           cancelSlotMutation.mutate(slot.id);
                                         }
                                       }}
-                                      title="Odwołaj rezerwację (zwolnij termin)"
-                                      aria-label="Odwołaj rezerwację"
+                                      title={t("booking.cancel_title")}
+                                      aria-label={t("booking.cancel_title")}
                                     >
                                       <XCircle className="h-3 w-3" />
                                     </Button>
@@ -1115,7 +1161,7 @@ export default function AdminPanel() {
                                     onClick={() => {
                                       if (
                                         window.confirm(
-                                          "Czy na pewno chcesz całkowicie usunąć ten termin z grafiku?"
+                                          t("admin.delete_confirm")
                                         )
                                       ) {
                                         deleteSlotMutation.mutate({
@@ -1124,8 +1170,8 @@ export default function AdminPanel() {
                                         });
                                       }
                                     }}
-                                    title="Usuń termin z grafiku"
-                                    aria-label="Usuń termin"
+                                    title={t("admin.delete")}
+                                    aria-label={t("admin.delete")}
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>
@@ -1182,7 +1228,7 @@ export default function AdminPanel() {
           >
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Edycja terminu</DialogTitle>
+                <DialogTitle>{t("admin.edit_slot_title")}</DialogTitle>
                 <DialogDescription>
                   {editingSlot &&
                     `${format(
@@ -1196,11 +1242,11 @@ export default function AdminPanel() {
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
-                    if (isEditCollision) return; // Blokada submitu jeśli kolizja
+                    if (isEditCollision) return;
 
                     const formData = new FormData(e.currentTarget);
                     const studentIdRaw = formData.get("studentId") as string;
-                    const timeRaw = editFormTime; // Bierzemy ze stanu
+                    const timeRaw = editFormTime;
 
                     const studentId =
                       studentIdRaw && studentIdRaw !== "none"
@@ -1245,7 +1291,7 @@ export default function AdminPanel() {
                 >
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
-                      <Label>Godzina</Label>
+                      <Label>{t("admin.hour")}</Label>
                       <Input
                         name="time"
                         type="time"
@@ -1254,7 +1300,7 @@ export default function AdminPanel() {
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label>Czas trwania lekcji (min)</Label>
+                      <Label>{t("admin.slot_duration")}</Label>
                       <Input
                         name="duration"
                         type="number"
@@ -1262,7 +1308,6 @@ export default function AdminPanel() {
                         onChange={(e) => {
                           const val = parseInt(e.target.value) || 0;
                           setEditFormDuration(val);
-                          // Przeliczanie ceny przy edycji
                           const calculatedPrice = Math.ceil((val / 60) * 80);
                           setEditFormPrice(calculatedPrice);
                         }}
@@ -1281,10 +1326,16 @@ export default function AdminPanel() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="onsite">
-                          {t("admin.loc_onsite")}
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            {t("admin.loc_onsite")}
+                          </div>
                         </SelectItem>
                         <SelectItem value="commute">
-                          {t("admin.loc_commute")}
+                          <div className="flex items-center gap-2">
+                            <Car className="h-4 w-4 text-orange-500" />
+                            {t("admin.loc_commute")}
+                          </div>
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1304,14 +1355,14 @@ export default function AdminPanel() {
                   )}
 
                   <div className="grid gap-2">
-                    <Label>Przypisz ucznia</Label>
+                    <Label>{t("admin.assign_student")}</Label>
                     <Select name="studentId">
                       <SelectTrigger>
-                        <SelectValue placeholder="Wybierz ucznia..." />
+                        <SelectValue placeholder={t("admin.select_student")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">
-                          -- Brak (Wolny termin) --
+                          {t("admin.student_none")}
                         </SelectItem>
                         {users
                           ?.filter((u) => u.role === "student")
@@ -1324,7 +1375,7 @@ export default function AdminPanel() {
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label>Cena (opcjonalnie)</Label>
+                    <Label>{t("admin.price_optional")}</Label>
                     <Input
                       name="price"
                       type="number"
@@ -1335,22 +1386,18 @@ export default function AdminPanel() {
                     />
                   </div>
 
-                  {/* OSTRZEŻENIE O KOLIZJI W EDYCJI */}
                   {isEditCollision && (
                     <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md animate-in fade-in slide-in-from-bottom-2">
                       <AlertTriangle className="h-5 w-5 shrink-0" />
                       <span className="text-sm font-semibold">
-                        {t(
-                          "admin.collision_detected",
-                          "⚠️ Wykryto kolizję z innym terminem!"
-                        )}
+                        {t("admin.collision_detected")}
                       </span>
                     </div>
                   )}
 
                   <DialogFooter>
                     <Button type="submit" disabled={isEditCollision}>
-                      Zapisz zmiany
+                      {t("admin.save")}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -1470,10 +1517,16 @@ export default function AdminPanel() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="onsite">
-                          {t("admin.loc_onsite")}
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-primary" />
+                            {t("admin.loc_onsite")}
+                          </div>
                         </SelectItem>
                         <SelectItem value="commute">
-                          {t("admin.loc_commute")}
+                          <div className="flex items-center gap-2">
+                            <Car className="h-4 w-4 text-orange-500" />
+                            {t("admin.loc_commute")}
+                          </div>
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -1495,9 +1548,20 @@ export default function AdminPanel() {
                   )}
                 </div>
 
-                <div className="flex justify-end">
+                {isTemplateAddCollision && (
+                  <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md animate-in fade-in slide-in-from-bottom-2 mt-2">
+                    <AlertTriangle className="h-5 w-5 shrink-0" />
+                    <span className="text-sm font-semibold">
+                      {t("admin.collision_detected")}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-end mt-4">
                   <Button
                     className="w-full md:w-auto"
+                    // Blokujemy przycisk jeśli jest kolizja LUB brak godziny
+                    disabled={isTemplateAddCollision || !templateForm.startTime}
                     onClick={() => {
                       createWeeklyItemMutation.mutate({
                         dayOfWeek: parseInt(templateForm.dayOfWeek),
@@ -1569,7 +1633,7 @@ export default function AdminPanel() {
                               </div>
                             ) : (
                               <div className="text-green-600 dark:text-green-400 font-medium">
-                                Wolne
+                                {t("admin.available")}
                               </div>
                             )}
                             <div className="mt-1 text-xs font-semibold">
@@ -1621,6 +1685,24 @@ export default function AdminPanel() {
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
+                        if (
+                          checkTemplateCollision(
+                            editingTemplateItem.dayOfWeek,
+                            editingTemplateItem.startTime,
+                            tplFormDuration,
+                            tplFormLocation,
+                            tplFormTravel,
+                            editingTemplateItem.id
+                          )
+                        ) {
+                          toast({
+                            variant: "destructive",
+                            title: t("toasts.error"),
+                            description: t("admin.collision_detected"),
+                          });
+                          return;
+                        }
+
                         const formData = new FormData(e.currentTarget);
                         const dayOfWeek = parseInt(
                           formData.get("dayOfWeek") as string
@@ -1662,6 +1744,7 @@ export default function AdminPanel() {
                           <Select
                             name="dayOfWeek"
                             defaultValue={editingTemplateItem.dayOfWeek.toString()}
+                            disabled
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -1694,6 +1777,12 @@ export default function AdminPanel() {
                             name="startTime"
                             type="time"
                             defaultValue={editingTemplateItem.startTime}
+                            onChange={(e) => {
+                              setEditingTemplateItem({
+                                ...editingTemplateItem,
+                                startTime: e.target.value,
+                              });
+                            }}
                           />
                         </div>
                       </div>
@@ -1709,10 +1798,16 @@ export default function AdminPanel() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="onsite">
-                              {t("admin.loc_onsite")}
+                              <div className="flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-primary" />
+                                {t("admin.loc_onsite")}
+                              </div>
                             </SelectItem>
                             <SelectItem value="commute">
-                              {t("admin.loc_commute")}
+                              <div className="flex items-center gap-2">
+                                <Car className="h-4 w-4 text-orange-500" />
+                                {t("admin.loc_commute")}
+                              </div>
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -1728,7 +1823,7 @@ export default function AdminPanel() {
                             onChange={(e) => {
                               const val = parseInt(e.target.value) || 0;
                               setTplFormDuration(val);
-                              const calculatedPrice = Math.round(
+                              const calculatedPrice = Math.ceil(
                                 (val / 60) * 80
                               );
                               setTplFormPrice(calculatedPrice);
@@ -1788,8 +1883,37 @@ export default function AdminPanel() {
                         </Select>
                       </div>
 
+                      {/* Ostrzeżenie o kolizji w edycji szablonu */}
+                      {checkTemplateCollision(
+                        editingTemplateItem.dayOfWeek,
+                        editingTemplateItem.startTime,
+                        tplFormDuration,
+                        tplFormLocation,
+                        tplFormTravel,
+                        editingTemplateItem.id
+                      ) && (
+                        <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md animate-in fade-in slide-in-from-bottom-2">
+                          <AlertTriangle className="h-5 w-5 shrink-0" />
+                          <span className="text-sm font-semibold">
+                            {t("admin.collision_detected")}
+                          </span>
+                        </div>
+                      )}
+
                       <DialogFooter>
-                        <Button type="submit">Zapisz zmiany</Button>
+                        <Button
+                          type="submit"
+                          disabled={checkTemplateCollision(
+                            editingTemplateItem.dayOfWeek,
+                            editingTemplateItem.startTime,
+                            tplFormDuration,
+                            tplFormLocation,
+                            tplFormTravel,
+                            editingTemplateItem.id
+                          )}
+                        >
+                          Zapisz zmiany
+                        </Button>
                       </DialogFooter>
                     </form>
                   )}
@@ -2158,75 +2282,6 @@ export default function AdminPanel() {
           </Card>
         </TabsContent>
 
-        {/* NOWA ZAKŁADKA: ZGŁOSZENIA (WAITLIST) */}
-        <TabsContent value="requests" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("admin.requests_title")}</CardTitle>
-              <CardDescription>{t("admin.requests_desc")}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {waitlist?.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  {t("admin.requests_empty")}
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {waitlist?.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 border rounded-lg bg-card shadow-sm gap-4"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-lg text-primary">
-                            {format(new Date(item.date), "d MMMM yyyy", {
-                              locale: dateLocale,
-                            })}
-                          </span>
-                          <span className="text-sm text-muted-foreground">
-                            (
-                            {format(new Date(item.date), "EEEE", {
-                              locale: dateLocale,
-                            })}
-                            )
-                          </span>
-                        </div>
-                        <div className="font-medium text-lg">
-                          {item.studentName || t("admin.unknown_student")}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {item.studentEmail} •{" "}
-                          {item.studentPhone || t("admin.no_phone")}
-                        </div>
-                        {item.note && (
-                          <div className="mt-2 p-2 bg-muted/50 rounded border-l-2 border-primary/50 text-sm italic">
-                            "{item.note}"
-                          </div>
-                        )}
-                      </div>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10"
-                        title="Usuń zgłoszenie"
-                        onClick={() => {
-                          if (confirm(t("admin.delete_request_confirm"))) {
-                            deleteWaitlistMutation.mutate(item.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="profile">
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
@@ -2236,64 +2291,81 @@ export default function AdminPanel() {
                   {t("dashboard.profile_subtitle")}
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t("admin.profile_email")}</Label>
-                  <Input
-                    value={adminProfileForm.email}
-                    onChange={(e) =>
-                      setAdminProfileForm({
-                        ...adminProfileForm,
-                        email: e.target.value,
-                      })
-                    }
-                    placeholder="admin@mathmentor.pl"
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  updateProfileMutation.mutate(adminProfileForm);
+                }}
+              >
+                <CardContent className="space-y-4">
+                  {/* Ukryte pole username dla password managerów */}
+                  <input
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    style={{ display: "none" }}
                   />
-                  <p className="text-xs text-muted-foreground">
-                    {t("admin.profile_email_hint")}
-                  </p>
-                </div>
 
-                <div className="space-y-2">
-                  <Label>{t("admin.profile_phone")}</Label>
-                  <Input
-                    value={adminProfileForm.phone}
-                    onChange={(e) =>
-                      setAdminProfileForm({
-                        ...adminProfileForm,
-                        phone: e.target.value,
-                      })
-                    }
-                    placeholder="+48..."
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label>{t("admin.profile_email")}</Label>
+                    <Input
+                      value={adminProfileForm.email}
+                      autoComplete="email"
+                      onChange={(e) =>
+                        setAdminProfileForm({
+                          ...adminProfileForm,
+                          email: e.target.value,
+                        })
+                      }
+                      placeholder="admin@mathmentor.pl"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {t("admin.profile_email_hint")}
+                    </p>
+                  </div>
 
-                <div className="space-y-2 pt-2 border-t">
-                  <Label>{t("admin.new_password")}</Label>
-                  <Input
-                    type="password"
-                    value={adminProfileForm.password}
-                    onChange={(e) =>
-                      setAdminProfileForm({
-                        ...adminProfileForm,
-                        password: e.target.value,
-                      })
-                    }
-                    placeholder={t("admin.new_password_placeholder")}
-                  />
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button
-                  onClick={() => updateProfileMutation.mutate(adminProfileForm)}
-                  disabled={updateProfileMutation.isPending}
-                >
-                  {updateProfileMutation.isPending && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  {t("dashboard.save_changes")}
-                </Button>
-              </CardFooter>
+                  <div className="space-y-2">
+                    <Label>{t("admin.profile_phone")}</Label>
+                    <Input
+                      value={adminProfileForm.phone}
+                      onChange={(e) =>
+                        setAdminProfileForm({
+                          ...adminProfileForm,
+                          phone: e.target.value,
+                        })
+                      }
+                      placeholder="+48..."
+                    />
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label>{t("admin.new_password")}</Label>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      value={adminProfileForm.password}
+                      onChange={(e) =>
+                        setAdminProfileForm({
+                          ...adminProfileForm,
+                          password: e.target.value,
+                        })
+                      }
+                      placeholder={t("admin.new_password_placeholder")}
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button
+                    type="submit"
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    {updateProfileMutation.isPending && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    {t("dashboard.save_changes")}
+                  </Button>
+                </CardFooter>
+              </form>
             </Card>
 
             <Card className="bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800">

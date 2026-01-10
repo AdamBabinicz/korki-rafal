@@ -171,6 +171,10 @@
     "no_phone": "Brak telefonu",
     "delete_request_confirm": "Czy na pewno usunąć to zgłoszenie?",
     "request_deleted": "Usunięto zgłoszenie",
+    "collision_detected": "⚠️ Wykryto kolizję z innym terminem!",
+    "assign_student": "Przypisz ucznia",
+    "select_student": "Wybierz ucznia...",
+    "price_optional": "Cena (opcjonalnie)",
     "table": {
       "id": "ID",
       "name": "Imię i Nazwisko",
