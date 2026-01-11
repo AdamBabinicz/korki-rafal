@@ -41,7 +41,7 @@ import {
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import { Link } from "wouter";
-import { useMemo, useEffect } from "react";
+import { useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -142,7 +142,8 @@ export default function DashboardPage() {
       new Date(slot.endTime),
       new Date(slot.startTime)
     );
-    const travelTime = slot.travelMinutes || 0;
+    // Używamy Number() dla pewności, gdyby baza zwróciła string
+    const travelTime = Number(slot.travelMinutes) || 0;
     const lessonDuration = totalDuration - travelTime;
 
     return addMinutes(new Date(slot.startTime), lessonDuration);
