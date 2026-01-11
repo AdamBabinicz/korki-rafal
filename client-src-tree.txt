@@ -1,0 +1,105 @@
+Folder PATH listing
+Volume serial number is 78F9-15D7
+C:\USERS\LEGION\DOCUMENTS\MATH-MENTOR\CLIENT\SRC
+-   App.tsx
+-   i18n.ts
+-   index.css
+-   main.tsx
+-   
++¦¦¦components
+-   -   footer.tsx
+-   -   nav-bar.tsx
+-   -   protected-route.tsx
+-   -   scroll-restoration.tsx
+-   -   scroll-to-top.tsx
+-   -   seo.tsx
+-   -   ui-button.tsx
+-   -   ui-card.tsx
+-   -   ui-input.tsx
+-   -   
+-   L¦¦¦ui
+-           accordion.tsx
+-           alert-dialog.tsx
+-           alert.tsx
+-           aspect-ratio.tsx
+-           avatar.tsx
+-           badge.tsx
+-           breadcrumb.tsx
+-           button.tsx
+-           calendar.tsx
+-           card.tsx
+-           carousel.tsx
+-           chart.tsx
+-           checkbox.tsx
+-           collapsible.tsx
+-           command.tsx
+-           context-menu.tsx
+-           dialog.tsx
+-           drawer.tsx
+-           dropdown-menu.tsx
+-           form.tsx
+-           hover-card.tsx
+-           input-otp.tsx
+-           input.tsx
+-           label.tsx
+-           menubar.tsx
+-           navigation-menu.tsx
+-           pagination.tsx
+-           popover.tsx
+-           progress.tsx
+-           radio-group.tsx
+-           resizable.tsx
+-           scroll-area.tsx
+-           select.tsx
+-           separator.tsx
+-           sheet.tsx
+-           sidebar.tsx
+-           skeleton.tsx
+-           slider.tsx
+-           switch.tsx
+-           table.tsx
+-           tabs.tsx
+-           textarea.tsx
+-           toast.tsx
+-           toaster.tsx
+-           toggle-group.tsx
+-           toggle.tsx
+-           tooltip.tsx
+-           
++¦¦¦hooks
+-       use-auth.ts
+-       use-mobile.tsx
+-       use-openai.ts
+-       use-slots.ts
+-       use-theme.tsx
+-       use-toast.ts
+-       
++¦¦¦lib
+-       queryClient.ts
+-       utils.ts
+-       
++¦¦¦pages
+-   -   admin.tsx
+-   -   booking.tsx
+-   -   dashboard.tsx
+-   -   home.tsx
+-   -   login.tsx
+-   -   not-found.tsx
+-   -   Privacy.tsx
+-   -   register.tsx
+-   -   Terms.tsx
+-   -   
+-   +¦¦¦admin
+-   -       index.tsx
+-   -       
+-   L¦¦¦components
+-           CalendarTab.tsx
+-           ProfileTab.tsx
+-           RequestsTab.tsx
+-           StudentsTab.tsx
+-           TemplateTab.tsx
+-           
+L¦¦¦translations
+        en.json
+        pl.json
+        

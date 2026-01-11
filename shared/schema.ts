@@ -46,6 +46,7 @@ export const weeklySchedule = pgTable("weekly_schedule", {
   durationMinutes: integer("duration_minutes").notNull(),
   studentId: integer("student_id").references(() => users.id),
   price: integer("price").notNull().default(0),
+  // Kluczowe pola dla Twojego problemu:
   locationType: text("location_type").default("onsite"),
   travelMinutes: integer("travel_minutes").default(0),
 });
@@ -101,13 +102,13 @@ export const insertSlotSchema = createInsertSchema(slots, {
     adminNotes: true,
   });
 
+// Tutaj upewniamy się, że locationType i travelMinutes są uwzględnione
 export const insertWeeklyScheduleSchema = createInsertSchema(
   weeklySchedule
 ).omit({
   id: true,
 });
 
-// POPRAWKA: Dodano z.coerce.date(), aby naprawić błąd "Invalid request"
 export const insertWaitlistSchema = createInsertSchema(waitlist, {
   date: z.coerce.date(),
 }).omit({

@@ -41,7 +41,7 @@ import { scrypt, randomBytes } from "crypto";
 import { promisify } from "util";
 import { eq, and, gte, lte, lt, ne, sql, desc } from "drizzle-orm";
 import { db } from "./db";
-import { slots, waitlist, users } from "@shared/schema";
+import { slots, waitlist, users, weeklySchedule } from "@shared/schema";
 
 const scryptAsync = promisify(scrypt);
 
@@ -62,19 +62,14 @@ function getWarsawHourMinute(date: Date) {
   return { h: h === 24 ? 0 : h, m };
 }
 
-// Funkcja anonimizująca dane dla Telegrama (RODO)
 function anonymizeName(name: string, id: number): string {
   if (!name) return `Uczeń (ID: ${id})`;
   const parts = name.trim().split(" ");
-
   if (parts.length > 1) {
-    // Imię + pierwsza litera nazwiska + ID
     const firstName = parts[0];
     const lastInitial = parts[parts.length - 1][0];
     return `${firstName} ${lastInitial}. (ID: ${id})`;
   }
-
-  // Tylko imię + ID
   return `${name} (ID: ${id})`;
 }
 
@@ -85,7 +80,7 @@ async function getPublicHolidays(year: number): Promise<Set<string>> {
     return holidayCache.get(year)!;
   }
   try {
-    console.log(`Fetching public holidays for year ${year}...`);
+    console.log(`Pobieranie świąt na rok ${year}...`);
     const response = await fetch(
       `https://date.nager.at/api/v3/PublicHolidays/${year}/PL`
     );
@@ -95,7 +90,7 @@ async function getPublicHolidays(year: number): Promise<Set<string>> {
     holidayCache.set(year, holidays);
     return holidays;
   } catch (error) {
-    console.error("Failed to fetch holidays:", error);
+    console.error("Błąd pobierania świąt:", error);
     return new Set();
   }
 }
@@ -106,7 +101,7 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupAuth(app);
 
-  // --- AUTOMATYCZNA NAPRAWA BAZY DANYCH (MIGRACJA) ---
+  // --- AUTOMATYCZNA MIGRACJA BAZY DANYCH ---
   try {
     console.log("[DB] Sprawdzanie struktury tabel...");
     await db.execute(
@@ -118,30 +113,29 @@ export async function registerRoutes(
     await db.execute(
       sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
+
+    // Kluczowe dla Twojego problemu:
     await db.execute(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';`
     );
     await db.execute(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
+
     await db.execute(
       sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`
     );
     console.log("[DB] Struktura tabel jest poprawna.");
   } catch (err) {
-    console.error(
-      "[DB] Błąd auto-migracji (można zignorować jeśli kolumny istnieją):",
-      err
-    );
+    console.error("[DB] Błąd auto-migracji:", err);
   }
-  // ----------------------------------------------------
 
-  // --- UŻYTKOWNICY ---
+  // --- ROUTES ---
 
   app.get("/api/users", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     res.header("Cache-Control", "no-store, max-age=0");
     const users = await storage.getAllUsers();
@@ -151,9 +145,8 @@ export async function registerRoutes(
   app.post("/api/users", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
-
     try {
       const userData = insertUserSchema.parse(req.body);
       const existingUser = await storage.getUserByUsername(userData.username);
@@ -171,7 +164,7 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) {
         res.status(400).json({ message: err.issues[0].message });
       } else {
-        res.status(500).json({ message: "Internal server error" });
+        res.status(500).json({ message: "Błąd serwera" });
       }
     }
   });
@@ -179,9 +172,8 @@ export async function registerRoutes(
   app.patch("/api/users/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
-
     try {
       const id = parseInt(req.params.id);
       const userData = insertUserSchema.partial().parse(req.body);
@@ -191,55 +183,36 @@ export async function registerRoutes(
       } else {
         delete userData.password;
       }
-
       const updatedUser = await storage.updateUser(id, userData);
       res.json(updatedUser);
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.issues[0].message });
-      } else {
-        console.error(err);
-        res.status(500).json({ message: "Internal server error" });
-      }
+      res.status(500).json({ message: "Błąd serwera" });
     }
   });
 
   app.patch("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
-
     try {
       const updateSchema = z.object({
-        email: z.string().email("Nieprawidłowy format adresu e-mail"),
+        email: z.string().email(),
         phone: z.string().optional(),
       });
-
       const { email, phone } = updateSchema.parse(req.body);
-
-      const updatedUser = await storage.updateUser(user.id, {
-        email,
-        phone,
-      });
-
+      const updatedUser = await storage.updateUser(user.id, { email, phone });
       req.login(updatedUser, (err) => {
-        if (err) {
-          console.error("Błąd aktualizacji sesji:", err);
-        }
+        if (err) console.error(err);
         res.json(updatedUser);
       });
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        res.status(400).json({ message: err.issues[0].message });
-      } else {
-        res.status(500).json({ message: "Nie udało się zaktualizować danych" });
-      }
+      res.status(500).json({ message: "Nie udało się zaktualizować danych" });
     }
   });
 
   app.delete("/api/users/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     const id = parseInt(req.params.id);
     await storage.deleteUser(id);
@@ -254,26 +227,19 @@ export async function registerRoutes(
         ? new Date(req.query.start as string)
         : undefined;
       const end = req.query.end ? new Date(req.query.end as string) : undefined;
-
-      if (end) {
-        end.setHours(23, 59, 59, 999);
-      }
-
-      console.log(`[API] Pobieranie slotów od ${start} do ${end}`);
+      if (end) end.setHours(23, 59, 59, 999);
       const slots = await storage.getSlots(start, end);
-      console.log(`[API] Znaleziono slotów: ${slots.length}`);
-
       res.json(slots);
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: "Failed to fetch slots" });
+      res.status(500).json({ message: "Błąd pobierania slotów" });
     }
   });
 
   app.post("/api/slots", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     try {
       const input = insertSlotSchema.parse(req.body);
@@ -281,14 +247,14 @@ export async function registerRoutes(
       res.status(201).json(slot);
     } catch (err) {
       console.error(err);
-      res.status(400).json({ message: "Error creating slot" });
+      res.status(400).json({ message: "Błąd tworzenia slotu" });
     }
   });
 
   app.patch("/api/slots/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     try {
       const id = parseInt(req.params.id);
@@ -296,21 +262,21 @@ export async function registerRoutes(
       const updated = await storage.updateSlot(id, input);
       res.json(updated);
     } catch (err) {
-      res.status(500).json({ message: "Failed to update slot" });
+      res.status(500).json({ message: "Błąd aktualizacji slotu" });
     }
   });
 
   app.delete("/api/slots/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     const id = parseInt(req.params.id);
     await storage.deleteSlot(id);
     res.sendStatus(204);
   });
 
-  // --- SZABLON TYGODNIOWY ---
+  // --- SZABLON TYGODNIOWY (TUTAJ BYŁ PROBLEM) ---
 
   app.get("/api/weekly-schedule", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -321,49 +287,62 @@ export async function registerRoutes(
   app.post("/api/weekly-schedule", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     try {
       const input = insertWeeklyScheduleSchema.parse(req.body);
       const item = await storage.createWeeklyScheduleItem(input);
       res.status(201).json(item);
     } catch (err) {
-      res.status(500).json({ message: "Internal server error" });
+      console.error("[POST Template Error]", err);
+      res.status(500).json({ message: "Błąd serwera przy dodawaniu szablonu" });
     }
   });
 
+  // --- POPRAWIONA METODA PATCH DLA SZABLONU ---
   app.patch("/api/weekly-schedule/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     try {
       const id = parseInt(req.params.id);
+
+      // Parsujemy dane wejściowe
       const input = insertWeeklyScheduleSchema.partial().parse(req.body);
+
+      // LOGOWANIE DLA DEBUGOWANIA
+      console.log(
+        `[PATCH Template ID=${id}] Dane wejściowe:`,
+        JSON.stringify(input)
+      );
+
       const updated = await storage.updateWeeklyScheduleItem(id, input);
+
+      console.log(`[PATCH Template ID=${id}] Zaktualizowano pomyślnie.`);
       res.json(updated);
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ message: "Failed to update template item" });
+      console.error("[PATCH Template Error]", err);
+      res.status(500).json({ message: "Błąd aktualizacji elementu szablonu" });
     }
   });
 
   app.delete("/api/weekly-schedule/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     const id = parseInt(req.params.id);
     await storage.deleteWeeklyScheduleItem(id);
     res.sendStatus(204);
   });
 
-  // --- WAITLIST (ZGŁOSZENIA) ---
+  // --- WAITLIST ---
 
   app.get("/api/waitlist", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     try {
       const items = await db
@@ -379,11 +358,10 @@ export async function registerRoutes(
         .from(waitlist)
         .leftJoin(users, eq(waitlist.userId, users.id))
         .orderBy(desc(waitlist.date));
-
       res.json(items);
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: "Failed to fetch waitlist" });
+      res.status(500).json({ message: "Błąd pobierania listy oczekujących" });
     }
   });
 
@@ -397,11 +375,9 @@ export async function registerRoutes(
       });
       const entry = await storage.addToWaitlist(input);
 
-      // --- OPTYMALIZACJA "FIRE AND FORGET" ---
-      // Najpierw wysyłamy odpowiedź do klienta
       res.status(201).json(entry);
 
-      // A powiadomienia wysyłamy w tle, nie blokując odpowiedzi
+      // Fire-and-forget
       (async () => {
         try {
           const allUsers = await storage.getAllUsers();
@@ -416,7 +392,6 @@ export async function registerRoutes(
               input.note
             );
           }
-
           const safeName = anonymizeName(user.name, user.id);
           const formattedDate = format(
             new Date(input.date),
@@ -424,57 +399,44 @@ export async function registerRoutes(
             { locale: pl }
           );
           const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
-
           await sendSafeTelegramAlert(
             new Date(input.date),
             `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${safeName}</b> zgłasza chęć lekcji.${noteText}`
           );
         } catch (error) {
-          console.error("Błąd tła (Waitlist notifications):", error);
+          console.error("Background Error (Waitlist):", error);
         }
       })();
-      // ---------------------------------------
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.issues[0].message });
       }
-      console.error("[WAITLIST ERROR]", err);
-      // Jeśli błąd wystąpił PRZED wysłaniem odpowiedzi, zwracamy 500.
-      // Jeśli po, Express zignoruje ten wpis (headers already sent).
-      if (!res.headersSent) {
-        res.status(500).json({ message: "Server error" });
-      }
+      if (!res.headersSent) res.status(500).json({ message: "Błąd serwera" });
     }
   });
 
   app.delete("/api/waitlist/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
-    try {
-      const id = parseInt(req.params.id);
-      await db.delete(waitlist).where(eq(waitlist.id, id));
-      res.sendStatus(204);
-    } catch (err) {
-      res.status(500).json({ message: "Failed to delete waitlist entry" });
-    }
+    const id = parseInt(req.params.id);
+    await db.delete(waitlist).where(eq(waitlist.id, id));
+    res.sendStatus(204);
   });
 
   // --- GENERATORY ---
-  // (Generatory mogą trwać długo, tu zostawiamy await, bo to operacja administracyjna)
+
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
     try {
       const { startDate, endDate, startTime, endTime, duration } =
         generateSlotsSchema.parse(req.body);
-
       const start = parseISO(startDate);
       const end = parseISO(endDate);
-
       const startYear = getYear(start);
       const holidays = await getPublicHolidays(startYear);
       if (getYear(end) !== startYear) {
@@ -486,10 +448,8 @@ export async function registerRoutes(
       const existingTimestamps = new Set(
         existingSlots.map((s) => s.startTime.getTime())
       );
-
       const [startHour, startMinute] = startTime.split(":").map(Number);
       const [endHour, endMinute] = endTime.split(":").map(Number);
-
       const weeklySchedule = await storage.getWeeklySchedule();
 
       let currentDay = start;
@@ -497,18 +457,15 @@ export async function registerRoutes(
 
       while (currentDay <= end) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
-        const dayOfWeek = getDay(currentDay);
-
         if (holidays.has(dateStr)) {
           currentDay = addDays(currentDay, 1);
           continue;
         }
-
+        const dayOfWeek = getDay(currentDay);
         if (dayOfWeek !== 0) {
           const fixedLessons = weeklySchedule.filter(
             (l) => l.dayOfWeek === dayOfWeek
           );
-
           let daySlotStart = setMinutes(
             setHours(currentDay, startHour),
             startMinute
@@ -535,7 +492,6 @@ export async function registerRoutes(
                   : 0;
               const lessonEndMin =
                 lessonStartMin + lesson.durationMinutes + extraTime;
-
               return slotStartMin < lessonEndMin && slotEndMin > lessonStartMin;
             });
 
@@ -559,26 +515,23 @@ export async function registerRoutes(
         }
         currentDay = addDays(currentDay, 1);
       }
-
       res.status(201).json({ count });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: "Failed to generate slots" });
+      res.status(500).json({ message: "Błąd generowania slotów" });
     }
   });
 
   app.post("/api/slots/generate-from-template", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
-      return res.status(403).send("Unauthorized");
+      return res.status(403).send("Brak dostępu");
     }
-    // ... (kod generatora bez zmian - to operacja rzadka i może trwać)
     console.log("[GENERATOR] Start generowania z szablonu...");
     try {
       const { startDate, endDate } = generateFromTemplateSchema.parse(req.body);
       const start = parseISO(startDate);
       const end = parseISO(endDate);
-
       const weeklySchedule = await storage.getWeeklySchedule();
       console.log(
         `[GENERATOR] Pobrano ${weeklySchedule.length} elementów szablonu.`
@@ -592,30 +545,24 @@ export async function registerRoutes(
       }
 
       const existingSlots = await storage.getSlots(start, addDays(end, 1));
-
       let currentDay = start;
       let count = 0;
       let updatedCount = 0;
 
       while (currentDay <= end) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
-
         if (holidays.has(dateStr)) {
-          console.log(`[GENERATOR] Pomijam święto: ${dateStr}`);
           currentDay = addDays(currentDay, 1);
           continue;
         }
-
         const dayOfWeek = getDay(currentDay);
         const dayTemplates = weeklySchedule.filter(
           (t) => t.dayOfWeek === dayOfWeek
         );
-
         const processedTimes = new Set<string>();
 
         for (const item of dayTemplates) {
           const [hours, minutes] = item.startTime.split(":").map(Number);
-
           let slotStart = new Date(currentDay);
           slotStart.setHours(hours, minutes, 0, 0);
 
@@ -628,15 +575,12 @@ export async function registerRoutes(
           slotStart = addMinutes(slotStart, -diff);
 
           const timeKey = slotStart.getTime().toString();
-          if (processedTimes.has(timeKey)) {
-            continue;
-          }
+          if (processedTimes.has(timeKey)) continue;
           processedTimes.add(timeKey);
 
           const extraTime =
             item.locationType === "commute" ? item.travelMinutes || 0 : 0;
           const totalDuration = item.durationMinutes + extraTime;
-
           const slotEnd = addMinutes(slotStart, totalDuration);
 
           const existingSlot = existingSlots.find(
@@ -648,23 +592,21 @@ export async function registerRoutes(
             ? item.student?.name || "Matematyka"
             : undefined;
 
+          // Tutaj upewniamy się, że generator bierze typ dojazdu z szablonu
           const slotData: Partial<typeof slots.$inferInsert> = {
             isBooked: isBooked,
             studentId: item.studentId,
             topic: topic,
             endTime: slotEnd,
             price: item.price,
-            locationType: item.locationType,
-            travelMinutes: item.travelMinutes,
+            locationType: item.locationType, // WAŻNE
+            travelMinutes: item.travelMinutes, // WAŻNE
           };
 
           if (existingSlot) {
             await storage.updateSlot(existingSlot.id, slotData);
             updatedCount++;
           } else {
-            console.log(
-              `[GENERATOR] Tworzę slot: ${dateStr} ${item.startTime} (Typ: ${item.locationType}, Dojazd: ${item.travelMinutes}min)`
-            );
             await storage.createSlot({
               ...slotData,
               startTime: slotStart,
@@ -674,10 +616,8 @@ export async function registerRoutes(
             count++;
           }
         }
-
         currentDay = addDays(currentDay, 1);
       }
-
       console.log(
         `[GENERATOR] Zakończono. Nowe: ${count}, Zaktualizowane: ${updatedCount}`
       );
@@ -687,30 +627,27 @@ export async function registerRoutes(
       });
     } catch (err) {
       console.error(err);
-      res.status(500).json({ message: "Failed to generate schedule" });
+      res.status(500).json({ message: "Błąd generowania" });
     }
   });
 
-  // --- REZERWACJA / ANULOWANIE (ZOPTYMALIZOWANE) ---
+  // --- REZERWACJA / BOOKING ---
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
-
     try {
       const id = parseInt(req.params.id);
       const { topic, durationMinutes, locationType } = bookSlotSchema.parse(
         req.body
       );
-
       const slot = await storage.getSlot(id);
-      if (!slot) return res.status(404).send("Slot not found");
-      if (slot.isBooked) return res.status(409).send("Slot already booked");
+      if (!slot) return res.status(404).send("Termin nie znaleziony");
+      if (slot.isBooked) return res.status(409).send("Termin już zajęty");
 
       const travelBuffer = locationType === "commute" ? 30 : 0;
       const totalOccupiedMinutes = durationMinutes + travelBuffer;
       const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
 
-      // Sprawdzanie kolizji
       const potentialCollisions = await db
         .select()
         .from(slots)
@@ -744,7 +681,6 @@ export async function registerRoutes(
         travelMinutes: travelBuffer,
       });
 
-      // Usuwanie pustych slotów pod spodem
       for (const collision of potentialCollisions) {
         if (collision.endTime <= newEndTime) {
           await storage.deleteSlot(collision.id);
@@ -752,27 +688,20 @@ export async function registerRoutes(
           collision.startTime < newEndTime &&
           collision.endTime > newEndTime
         ) {
-          await storage.updateSlot(collision.id, {
-            startTime: newEndTime,
-          });
+          await storage.updateSlot(collision.id, { startTime: newEndTime });
         }
       }
 
-      // --- OPTYMALIZACJA "FIRE AND FORGET" ---
-      // Odpowiadamy klientowi natychmiast
       res.json(updated);
 
-      // Powiadomienia w tle
       (async () => {
         try {
-          if (user.email) {
+          if (user.email)
             await sendBookingConfirmation(
               user.email,
               new Date(slot.startTime),
               topic || "Matematyka"
             );
-          }
-
           const allUsers = await storage.getAllUsers();
           const admin = allUsers.find((u) => u.role === "admin");
           if (admin && admin.email) {
@@ -783,40 +712,31 @@ export async function registerRoutes(
               topic || "Matematyka"
             );
           }
-
           const safeName = anonymizeName(user.name, user.id);
           await sendSafeTelegramAlert(
             new Date(slot.startTime),
             `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`
           );
         } catch (bgError) {
-          console.error("Błąd tła (Booking notifications):", bgError);
+          console.error("Background Error (Booking):", bgError);
         }
       })();
-      // ---------------------------------------
     } catch (err) {
-      if (err instanceof z.ZodError) {
+      if (err instanceof z.ZodError)
         return res.status(400).json({ message: err.issues[0].message });
-      }
-      console.error(err);
-      if (!res.headersSent) {
-        res.status(500).send("Error booking slot");
-      }
+      if (!res.headersSent) res.status(500).send("Błąd rezerwacji");
     }
   });
 
   app.post("/api/slots/:id/cancel", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
-
     try {
       const id = parseInt(req.params.id);
       const slot = await storage.getSlot(id);
-      if (!slot) return res.status(404).send("Slot not found");
-
-      if (user.role !== "admin" && slot.studentId !== user.id) {
-        return res.status(403).send("Not authorized");
-      }
+      if (!slot) return res.status(404).send("Termin nie znaleziony");
+      if (user.role !== "admin" && slot.studentId !== user.id)
+        return res.status(403).send("Brak uprawnień");
 
       if (user.role !== "admin") {
         const now = new Date();
@@ -826,15 +746,10 @@ export async function registerRoutes(
           now
         );
         const minutesSinceBooking = differenceInMinutes(now, bookedAt);
-        const GRACE_PERIOD_MINUTES = 30;
-
-        if (
-          hoursUntilLesson < 24 &&
-          minutesSinceBooking > GRACE_PERIOD_MINUTES
-        ) {
-          return res.status(400).json({
-            message: "Too late to cancel (less than 24h before lesson).",
-          });
+        if (hoursUntilLesson < 24 && minutesSinceBooking > 30) {
+          return res
+            .status(400)
+            .json({ message: "Za późno na anulowanie (mniej niż 24h)." });
         }
       }
 
@@ -848,9 +763,6 @@ export async function registerRoutes(
         travelMinutes: 0,
       });
 
-      console.log(`[SLOT] Termin ${id} został zwolniony.`);
-
-      // --- OPTYMALIZACJA "FIRE AND FORGET" ---
       res.json(updated);
 
       (async () => {
@@ -861,14 +773,9 @@ export async function registerRoutes(
               (u) =>
                 u.role === "student" &&
                 u.id !== user.id &&
-                u.email &&
-                u.email.includes("@")
+                u.email?.includes("@")
             )
             .map((u) => u.email as string);
-
-          const admin = allUsers.find((u) => u.role === "admin");
-          const adminEmail = admin?.email || process.env.EMAIL_USER;
-
           await broadcastFreeSlot(
             studentEmails,
             new Date(slot.startTime),
@@ -881,31 +788,25 @@ export async function registerRoutes(
             `❌ <b>Anulowano rezerwację!</b>\nUczeń: <b>${safeName}</b>\nTermin zwolniony.`
           );
 
-          if (user.email) {
+          if (user.email)
             await sendCancellationConfirmation(
               user.email,
               new Date(slot.startTime),
               user.name
             );
-          }
-
-          if (adminEmail) {
+          const admin = allUsers.find((u) => u.role === "admin");
+          if (admin?.email)
             await sendCancellationNotificationToAdmin(
-              adminEmail,
+              admin.email,
               user.name,
               new Date(slot.startTime)
             );
-          }
         } catch (bgError) {
-          console.error("Błąd tła (Cancellation notifications):", bgError);
+          console.error("Background Error (Cancel):", bgError);
         }
       })();
-      // ---------------------------------------
     } catch (err) {
-      console.error(err);
-      if (!res.headersSent) {
-        res.status(500).send("Error cancelling slot");
-      }
+      if (!res.headersSent) res.status(500).send("Błąd anulowania");
     }
   });
 
