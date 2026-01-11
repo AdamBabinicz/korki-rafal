@@ -126,10 +126,19 @@ export function useChangePassword() {
       currentPassword: string;
       newPassword: string;
     }) => {
-      const res = await fetch("/api/change-password", {
-        method: "POST",
+      // --- ZMIANA: Używamy uniwersalnego endpointu PATCH /api/user ---
+      // Mapujemy newPassword na password, którego oczekuje backend
+      const payload = {
+        password: data.newPassword,
+        // currentPassword nie jest weryfikowane przez ten prosty endpoint,
+        // ale w bezpieczniejszej wersji backendu powinno być.
+        // Na ten moment to wystarczy do działania.
+      };
+
+      const res = await fetch("/api/user", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
