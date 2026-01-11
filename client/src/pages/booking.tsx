@@ -162,30 +162,24 @@ export default function BookingPage() {
     setBookingSlot(slot);
     setBookingTopic("");
     setBookingDuration("60");
-    setLocationType("onsite");
+    // --- ZMIANA: Pobieramy typ dojazdu ze slotu (jeśli admin go ustawił) ---
+    setLocationType(slot.locationType || "onsite");
     setIsBookingOpen(true);
   };
 
-  // --- NAPRAWA LOGIKI REZERWACJI ---
   const handleConfirmBooking = async () => {
     if (!bookingSlot) return;
 
-    // 1. Zamykamy modal NATYCHMIAST
     setIsBookingOpen(false);
 
-    // 2. Ręczne Optymistyczne Update (zamiast onMutate w mutate())
-    // Anulujemy trwające odświeżanie
     await queryClient.cancelQueries({ queryKey });
 
-    // Zapisujemy poprzedni stan (migawka)
     const previousSlots = queryClient.getQueryData<Slot[]>(queryKey);
 
-    // Aktualizujemy cache "na brudno"
     queryClient.setQueryData<Slot[]>(queryKey, (old) => {
       if (!old) return [];
       return old.map((slot) => {
         if (slot.id === bookingSlot.id) {
-          // Udajemy, że slot jest już zajęty przez nas
           return {
             ...slot,
             isBooked: true,
@@ -197,7 +191,6 @@ export default function BookingPage() {
       });
     });
 
-    // 3. Właściwe wywołanie serwera
     bookSlotMutation.mutate(
       {
         id: bookingSlot.id,
@@ -207,30 +200,24 @@ export default function BookingPage() {
       },
       {
         onError: () => {
-          // W razie błędu cofamy zmiany z migawki
           if (previousSlots) {
             queryClient.setQueryData(queryKey, previousSlots);
           }
-          // I otwieramy modal z powrotem z informacją o błędzie (opcjonalnie)
           setIsBookingOpen(true);
         },
         onSettled: () => {
-          // Na koniec odświeżamy dane z serwera dla pewności
           queryClient.invalidateQueries({ queryKey });
         },
       }
     );
   };
 
-  // --- NAPRAWA LOGIKI ANULOWANIA ---
   const handleConfirmCancel = async () => {
     if (!slotToCancel) return;
 
     const idToCancel = slotToCancel.id;
-    // 1. Zamykamy modal
     setSlotToCancel(null);
 
-    // 2. Ręczne Optymistyczne Update
     await queryClient.cancelQueries({ queryKey });
     const previousSlots = queryClient.getQueryData<Slot[]>(queryKey);
 
@@ -238,7 +225,6 @@ export default function BookingPage() {
       if (!old) return [];
       return old.map((slot) => {
         if (slot.id === idToCancel) {
-          // Udajemy, że slot jest wolny
           return {
             ...slot,
             isBooked: false,
@@ -250,7 +236,6 @@ export default function BookingPage() {
       });
     });
 
-    // 3. Wywołanie serwera
     cancelSlotMutation.mutate(idToCancel, {
       onError: () => {
         if (previousSlots) {
@@ -556,7 +541,6 @@ export default function BookingPage() {
               </div>
             )}
 
-            {/* ZAWSZE WIDOCZNY PRZYCISK LISTY REZERWOWEJ */}
             <div className="mt-6 pt-6 border-t text-center">
               {!hasFreeSlots && selectedDaySlots.length > 0 && (
                 <p className="text-sm text-muted-foreground mb-4">
@@ -576,7 +560,6 @@ export default function BookingPage() {
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>{t("booking.waitlist_title")}</DialogTitle>
-                    {/* Dodano opis dla dostępności (accessibility) */}
                     <DialogDescription>
                       {t("booking.waitlist_desc")}{" "}
                       {format(selectedDate, "d MMMM", { locale: dateLocale })}
@@ -625,13 +608,13 @@ export default function BookingPage() {
                         locale: dateLocale,
                       })}
                     </p>
+                    {/* --- ZMIANA: Pokazujemy czysty czas lekcji, bez bufora dojazdu --- */}
                     <p className="text-sm text-muted-foreground">
                       {format(new Date(bookingSlot.startTime), "HH:mm")} -{" "}
                       {format(
                         addMinutes(
                           new Date(bookingSlot.startTime),
-                          parseInt(bookingDuration) +
-                            (locationType === "commute" ? 30 : 0)
+                          parseInt(bookingDuration)
                         ),
                         "HH:mm"
                       )}
@@ -683,7 +666,6 @@ export default function BookingPage() {
                     onValueChange={setBookingDuration}
                     className="grid gap-2"
                   >
-                    {/* Opcja 60 min */}
                     <div className="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
                       <RadioGroupItem value="60" id="r60" />
                       <Label
@@ -694,7 +676,6 @@ export default function BookingPage() {
                       </Label>
                     </div>
 
-                    {/* Opcja 90 min */}
                     <div
                       className={cn(
                         "flex items-center space-x-2 border rounded-lg p-3 transition-colors",
@@ -721,7 +702,6 @@ export default function BookingPage() {
                       </Label>
                     </div>
 
-                    {/* Opcja 120 min */}
                     <div
                       className={cn(
                         "flex items-center space-x-2 border rounded-lg p-3 transition-colors",
@@ -780,7 +760,6 @@ export default function BookingPage() {
           </DialogContent>
         </Dialog>
 
-        {/* --- Dialog Potwierdzenia Anulowania --- */}
         <Dialog
           open={!!slotToCancel}
           onOpenChange={(open) => !open && setSlotToCancel(null)}
