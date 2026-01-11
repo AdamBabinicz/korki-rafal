@@ -78,6 +78,11 @@ const isPublicHoliday = (date: Date) => {
   return false;
 };
 
+// Funkcja pomocnicza do usuwania informacji o czasie z tekstu (np. "(+30 min)")
+const stripTimeInfo = (text: string) => {
+  return text.replace(/\s*\(.*?\)/, "").trim();
+};
+
 export default function BookingPage() {
   const { data: user } = useUser();
   const { t, i18n } = useTranslation();
@@ -94,7 +99,6 @@ export default function BookingPage() {
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   weekEnd.setHours(23, 59, 59, 999);
 
-  // KLUCZ ZAPYTANIA (Musi być identyczny jak w hooku useSlots)
   const queryKey = [
     "/api/slots",
     { start: weekStart.toISOString(), end: weekEnd.toISOString() },
@@ -162,7 +166,7 @@ export default function BookingPage() {
     setBookingSlot(slot);
     setBookingTopic("");
     setBookingDuration("60");
-    // --- ZMIANA: Pobieramy typ dojazdu ze slotu (jeśli admin go ustawił) ---
+    // Pobieramy domyślny typ ze slotu, jeśli jest ustawiony
     setLocationType(slot.locationType || "onsite");
     setIsBookingOpen(true);
   };
@@ -608,7 +612,7 @@ export default function BookingPage() {
                         locale: dateLocale,
                       })}
                     </p>
-                    {/* --- ZMIANA: Pokazujemy czysty czas lekcji, bez bufora dojazdu --- */}
+                    {/* ZMIANA: Usunięto dodawanie 30 min w podglądzie, aby uczeń widział "czysty" czas lekcji */}
                     <p className="text-sm text-muted-foreground">
                       {format(new Date(bookingSlot.startTime), "HH:mm")} -{" "}
                       {format(
@@ -622,7 +626,6 @@ export default function BookingPage() {
                   </div>
                 </div>
 
-                {/* --- WYBÓR LOKALIZACJI --- */}
                 <div className="space-y-3">
                   <Label>{t("booking.location_label")}</Label>
                   <RadioGroup
@@ -637,7 +640,7 @@ export default function BookingPage() {
                         className="flex-1 cursor-pointer font-normal flex items-center gap-2"
                       >
                         <MapPin className="w-4 h-4 text-primary" />
-                        {t("booking.location_onsite")}
+                        {stripTimeInfo(t("booking.location_onsite"))}
                       </Label>
                     </div>
                     <div className="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
@@ -647,18 +650,19 @@ export default function BookingPage() {
                         className="flex-1 cursor-pointer font-normal flex items-center gap-2"
                       >
                         <Car className="w-4 h-4 text-orange-500" />
-                        {t("booking.location_commute")}
+                        {/* ZMIANA: Użycie funkcji stripTimeInfo, aby ukryć "(+30 min)" */}
+                        {stripTimeInfo(t("booking.location_commute"))}
                       </Label>
                     </div>
                   </RadioGroup>
-                  {locationType === "commute" && (
+                  {/* ZMIANA: Ukryto informację o dojeździe, aby nie zdradzać czasu trwania */}
+                  {/* {locationType === "commute" && (
                     <p className="text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
                       {t("booking.commute_info")}
                     </p>
-                  )}
+                  )} */}
                 </div>
 
-                {/* --- WYBÓR CZASU --- */}
                 <div className="space-y-3">
                   <Label>{t("booking.duration_label")}</Label>
                   <RadioGroup
