@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, CheckCircle2 } from "lucide-react";
+import { Loader2, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-auth";
@@ -28,6 +28,8 @@ export default function ProfileTab() {
     password: "",
   });
 
+  const [showPassword, setShowPassword] = useState(false);
+
   useEffect(() => {
     if (user) {
       setAdminProfileForm((prev) => ({
@@ -45,6 +47,13 @@ export default function ProfileTab() {
       password?: string;
     }) => {
       const res = await apiRequest("PATCH", "/api/user", data);
+      if (!res.ok) {
+        // Obsługa 401/403/500
+        if (res.status === 401)
+          throw new Error("Sesja wygasła. Zaloguj się ponownie.");
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Błąd zapisu");
+      }
       return res.json();
     },
     onSuccess: () => {
@@ -83,12 +92,16 @@ export default function ProfileTab() {
               type="text"
               name="username"
               autoComplete="username"
+              value={user?.username || ""}
+              readOnly
               style={{ display: "none" }}
             />
 
             <div className="space-y-2">
-              <Label>{t("admin.profile_email")}</Label>
+              <Label htmlFor="admin-email">{t("admin.profile_email")}</Label>
               <Input
+                id="admin-email"
+                name="email"
                 value={adminProfileForm.email}
                 autoComplete="email"
                 onChange={(e) =>
@@ -105,9 +118,12 @@ export default function ProfileTab() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("admin.profile_phone")}</Label>
+              <Label htmlFor="admin-phone">{t("admin.profile_phone")}</Label>
               <Input
+                id="admin-phone"
+                name="phone"
                 value={adminProfileForm.phone}
+                autoComplete="tel"
                 onChange={(e) =>
                   setAdminProfileForm({
                     ...adminProfileForm,
@@ -119,19 +135,41 @@ export default function ProfileTab() {
             </div>
 
             <div className="space-y-2 pt-2 border-t">
-              <Label>{t("admin.new_password")}</Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                value={adminProfileForm.password}
-                onChange={(e) =>
-                  setAdminProfileForm({
-                    ...adminProfileForm,
-                    password: e.target.value,
-                  })
-                }
-                placeholder={t("admin.new_password_placeholder")}
-              />
+              <Label htmlFor="admin-password">{t("admin.new_password")}</Label>
+              <div className="relative">
+                <Input
+                  id="admin-password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={adminProfileForm.password}
+                  onChange={(e) =>
+                    setAdminProfileForm({
+                      ...adminProfileForm,
+                      password: e.target.value,
+                    })
+                  }
+                  placeholder={t("admin.new_password_placeholder")}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-muted-foreground"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  <span className="sr-only">
+                    {showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                  </span>
+                </Button>
+              </div>
             </div>
           </CardContent>
           <CardFooter>

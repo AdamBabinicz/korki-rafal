@@ -20,6 +20,7 @@ import {
   insertUserSchema,
   bookSlotSchema,
   type User,
+  type InsertUser,
 } from "@shared/schema";
 import { z } from "zod";
 import {
@@ -190,22 +191,48 @@ export async function registerRoutes(
     }
   });
 
+  // --- ZMIANA DANYCH PROFILU (W TYM HASŁA) ---
   app.patch("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
     try {
+      // Rozszerzamy schemat o hasło
       const updateSchema = z.object({
-        email: z.string().email(),
+        email: z
+          .string()
+          .email("Nieprawidłowy format adresu e-mail")
+          .optional()
+          .or(z.literal("")),
         phone: z.string().optional(),
+        password: z.string().optional(), // Dodano obsługę hasła
       });
-      const { email, phone } = updateSchema.parse(req.body);
-      const updatedUser = await storage.updateUser(user.id, { email, phone });
+
+      const { email, phone, password } = updateSchema.parse(req.body);
+      const updateData: Partial<InsertUser> = {};
+
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (password && password.trim().length > 0) {
+        updateData.password = await hashPassword(password);
+      }
+
+      const updatedUser = await storage.updateUser(user.id, updateData);
+
+      // Ważne: Aktualizujemy sesję po zmianie danych (zwłaszcza hasła)
       req.login(updatedUser, (err) => {
-        if (err) console.error(err);
+        if (err) {
+          console.error("Błąd aktualizacji sesji:", err);
+          return res.status(500).json({ message: "Błąd sesji" });
+        }
         res.json(updatedUser);
       });
     } catch (err) {
-      res.status(500).json({ message: "Nie udało się zaktualizować danych" });
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ message: err.issues[0].message });
+      } else {
+        console.error(err);
+        res.status(500).json({ message: "Nie udało się zaktualizować danych" });
+      }
     }
   });
 
@@ -276,7 +303,7 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
-  // --- SZABLON TYGODNIOWY (TUTAJ BYŁ PROBLEM) ---
+  // --- SZABLON TYGODNIOWY ---
 
   app.get("/api/weekly-schedule", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -299,7 +326,6 @@ export async function registerRoutes(
     }
   });
 
-  // --- POPRAWIONA METODA PATCH DLA SZABLONU ---
   app.patch("/api/weekly-schedule/:id", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -307,18 +333,12 @@ export async function registerRoutes(
     }
     try {
       const id = parseInt(req.params.id);
-
-      // Parsujemy dane wejściowe
       const input = insertWeeklyScheduleSchema.partial().parse(req.body);
-
-      // LOGOWANIE DLA DEBUGOWANIA
       console.log(
         `[PATCH Template ID=${id}] Dane wejściowe:`,
         JSON.stringify(input)
       );
-
       const updated = await storage.updateWeeklyScheduleItem(id, input);
-
       console.log(`[PATCH Template ID=${id}] Zaktualizowano pomyślnie.`);
       res.json(updated);
     } catch (err) {
@@ -592,15 +612,14 @@ export async function registerRoutes(
             ? item.student?.name || "Matematyka"
             : undefined;
 
-          // Tutaj upewniamy się, że generator bierze typ dojazdu z szablonu
           const slotData: Partial<typeof slots.$inferInsert> = {
             isBooked: isBooked,
             studentId: item.studentId,
             topic: topic,
             endTime: slotEnd,
             price: item.price,
-            locationType: item.locationType, // WAŻNE
-            travelMinutes: item.travelMinutes, // WAŻNE
+            locationType: item.locationType,
+            travelMinutes: item.travelMinutes,
           };
 
           if (existingSlot) {
