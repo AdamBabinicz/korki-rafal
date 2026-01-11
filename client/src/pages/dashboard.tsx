@@ -36,6 +36,8 @@ import {
   isFuture,
   subDays,
   addYears,
+  differenceInMinutes,
+  addMinutes,
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import { Link } from "wouter";
@@ -44,6 +46,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import type { Slot } from "@shared/schema";
 
 // Schemat dla zmiany hasła
 const passwordSchema = z.object({
@@ -87,7 +90,6 @@ export default function DashboardPage() {
       email: user?.email || "",
       phone: user?.phone || "",
     },
-    // To ważne: aktualizuje formularz, gdy dane użytkownika załadują się z API
     values: {
       email: user?.email || "",
       phone: user?.phone || "",
@@ -133,6 +135,18 @@ export default function DashboardPage() {
       onSuccess: () => passwordForm.reset(),
     });
   }
+
+  // --- HELPER: Obliczanie końca lekcji DLA UCZNIA (bez dojazdu) ---
+  const getStudentEndTime = (slot: Slot) => {
+    const totalDuration = differenceInMinutes(
+      new Date(slot.endTime),
+      new Date(slot.startTime)
+    );
+    const travelTime = slot.travelMinutes || 0;
+    const lessonDuration = totalDuration - travelTime;
+
+    return addMinutes(new Date(slot.startTime), lessonDuration);
+  };
 
   // --- LOGIKA WYŚWIETLANIA LEKCJI ---
   const myUpcomingSlots = useMemo(() => {
@@ -242,8 +256,9 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-2">
                           <Clock className="h-4 w-4" />
+                          {/* ZMIANA: Wyświetlamy czas lekcji bez dojazdu */}
                           {format(new Date(slot.startTime), "HH:mm")} -{" "}
-                          {format(new Date(slot.endTime), "HH:mm")}
+                          {format(getStudentEndTime(slot), "HH:mm")}
                         </div>
                         <div className="flex gap-2 mt-1">
                           <span
