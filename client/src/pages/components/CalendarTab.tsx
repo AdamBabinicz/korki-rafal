@@ -47,7 +47,6 @@ import {
 } from "@/components/ui/dialog";
 import type { Slot, User, InsertSlot } from "@shared/schema";
 
-// --- HELPERS ---
 const isPublicHoliday = (date: Date) => {
   const dateString = format(date, "MM-dd");
   const year = date.getFullYear();
@@ -63,7 +62,6 @@ const isPublicHoliday = (date: Date) => {
     "12-26",
   ];
   if (fixed.includes(dateString)) return true;
-  // Wielkanoc i Boże Ciało (uproszczone dla 2025/2026)
   if (year === 2025 && ["04-20", "04-21", "06-19"].includes(dateString))
     return true;
   if (year === 2026 && ["04-05", "04-06", "06-04"].includes(dateString))
@@ -95,7 +93,6 @@ export default function CalendarTab() {
   const { toast } = useToast();
   const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
 
-  // --- STATE ---
   const [currentWeekStart, setCurrentWeekStart] = useState(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
@@ -106,7 +103,6 @@ export default function CalendarTab() {
   const [isAddSlotOpen, setIsAddSlotOpen] = useState(false);
   const [editingSlot, setEditingSlot] = useState<Slot | null>(null);
 
-  // Form states
   const [newSlotData, setNewSlotData] = useState<
     Partial<InsertSlot> & { duration: number }
   >({
@@ -124,7 +120,6 @@ export default function CalendarTab() {
   const [editFormLocation, setEditFormLocation] = useState("onsite");
   const [editFormTravel, setEditFormTravel] = useState(0);
 
-  // --- QUERIES ---
   const { data: slots } = useQuery<Slot[]>({
     queryKey: [
       "/api/slots",
@@ -142,7 +137,6 @@ export default function CalendarTab() {
 
   const { data: users } = useQuery<User[]>({ queryKey: ["/api/users"] });
 
-  // --- EFFECTS ---
   useEffect(() => {
     if (editingSlot) {
       const totalDuration = differenceInMinutes(
@@ -155,13 +149,14 @@ export default function CalendarTab() {
 
       setEditFormTime(format(new Date(editingSlot.startTime), "HH:mm"));
       setEditFormDuration(finalDuration);
-      setEditFormPrice(Math.ceil((finalDuration / 60) * 80));
+      setEditFormPrice(
+        editingSlot.price || Math.ceil((finalDuration / 60) * 80)
+      );
       setEditFormLocation(editingSlot.locationType || "onsite");
       setEditFormTravel(travel);
     }
   }, [editingSlot]);
 
-  // --- COLLISION LOGIC ---
   const checkCollision = (
     start: Date,
     duration: number,
@@ -209,7 +204,6 @@ export default function CalendarTab() {
     );
   })();
 
-  // --- MUTATIONS ---
   const createSlotMutation = useMutation({
     mutationFn: async (newSlot: InsertSlot) => {
       const res = await apiRequest("POST", "/api/slots", newSlot);
@@ -297,7 +291,6 @@ export default function CalendarTab() {
     },
   });
 
-  // --- HANDLERS ---
   const handleOpenAddSlot = () => {
     const initDate = new Date(weekStart);
     const now = new Date();
@@ -350,7 +343,6 @@ export default function CalendarTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* Header */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-card p-4 rounded-lg border shadow-sm">
         <div className="flex items-center gap-2">
           <Button
@@ -378,7 +370,6 @@ export default function CalendarTab() {
         </Button>
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
         {days.map((day) => {
           const daySlots =
@@ -445,17 +436,21 @@ export default function CalendarTab() {
                                 <Car className="h-3 w-3 text-orange-600" />
                               )}
                             </span>
+
+                            {/* --- PRZYCISKI AKCJI --- */}
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              {!slot.isBooked ? (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
-                                  onClick={() => setEditingSlot(slot)}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              ) : (
+                              {/* EDYCJA (Dostępna zawsze) */}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
+                                onClick={() => setEditingSlot(slot)}
+                                title={t("admin.edit_slot_title")}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+
+                              {slot.isBooked && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -466,10 +461,12 @@ export default function CalendarTab() {
                                     )
                                       cancelSlotMutation.mutate(slot.id);
                                   }}
+                                  title={t("booking.cancel_btn")}
                                 >
                                   <XCircle className="h-3 w-3" />
                                 </Button>
                               )}
+
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -481,11 +478,13 @@ export default function CalendarTab() {
                                       date: new Date(slot.startTime),
                                     });
                                 }}
+                                title={t("admin.delete")}
                               >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </div>
+
                           {slot.isBooked ? (
                             <div className="space-y-1">
                               <div className="font-medium text-blue-700 dark:text-blue-300">
@@ -523,7 +522,7 @@ export default function CalendarTab() {
         })}
       </div>
 
-      {/* Add Slot Modal */}
+      {/* --- ADD SLOT MODAL (Bez zmian) --- */}
       <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -686,7 +685,7 @@ export default function CalendarTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Slot Modal */}
+      {/* --- EDIT SLOT MODAL --- */}
       <Dialog
         open={!!editingSlot}
         onOpenChange={(open) => !open && setEditingSlot(null)}
@@ -805,7 +804,11 @@ export default function CalendarTab() {
               )}
               <div className="grid gap-2">
                 <Label>{t("admin.assign_student")}</Label>
-                <Select name="studentId">
+                {/* --- SEKCJA WYBORU UCZNIA (Domyślnie wybrany obecny) --- */}
+                <Select
+                  name="studentId"
+                  defaultValue={editingSlot.studentId?.toString() || "none"}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={t("admin.select_student")} />
                   </SelectTrigger>
