@@ -36,7 +36,6 @@ export interface IStorage {
 
   getWeeklySchedule(): Promise<(WeeklySchedule & { student?: User | null })[]>;
   createWeeklyScheduleItem(item: InsertWeeklySchedule): Promise<WeeklySchedule>;
-  // NOWA METODA:
   updateWeeklyScheduleItem(
     id: number,
     item: Partial<InsertWeeklySchedule>
@@ -89,19 +88,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteUser(id: number): Promise<void> {
-    // 1. Zwalniamy sloty przypisane do ucznia
     await db
       .update(slots)
       .set({ isBooked: false, studentId: null, isPaid: false, topic: null })
       .where(eq(slots.studentId, id));
-
-    // 2. Usuwamy z szablonu tygodniowego
     await db.delete(weeklySchedule).where(eq(weeklySchedule.studentId, id));
-
-    // 3. Usuwamy z listy rezerwowej
     await db.delete(waitlist).where(eq(waitlist.userId, id));
-
-    // 4. Usuwamy ucznia
     await db.delete(users).where(eq(users.id, id));
   }
 
@@ -123,6 +115,11 @@ export class DatabaseStorage implements IStorage {
         notes: slots.notes,
         price: slots.price,
         adminNotes: slots.adminNotes,
+        // --- DODANO NOWE POLA ---
+        locationType: slots.locationType,
+        travelMinutes: slots.travelMinutes,
+        bookedAt: slots.bookedAt,
+        // -----------------------
         student: {
           id: users.id,
           name: users.name,
@@ -175,6 +172,10 @@ export class DatabaseStorage implements IStorage {
         durationMinutes: weeklySchedule.durationMinutes,
         studentId: weeklySchedule.studentId,
         price: weeklySchedule.price,
+        // --- DODANO NOWE POLA ---
+        locationType: weeklySchedule.locationType,
+        travelMinutes: weeklySchedule.travelMinutes,
+        // -----------------------
         student: {
           id: users.id,
           name: users.name,
@@ -194,7 +195,6 @@ export class DatabaseStorage implements IStorage {
     return newItem;
   }
 
-  // NOWA IMPLEMENTACJA
   async updateWeeklyScheduleItem(
     id: number,
     item: Partial<InsertWeeklySchedule>
