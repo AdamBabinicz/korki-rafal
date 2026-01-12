@@ -36,6 +36,8 @@ import {
   addMinutes,
   isBefore,
   isAfter,
+  setSeconds,
+  setMilliseconds,
 } from "date-fns";
 import { pl } from "date-fns/locale";
 import { scrypt, randomBytes } from "crypto";
@@ -338,12 +340,21 @@ export async function registerRoutes(
     }
     try {
       const input = insertSlotSchema.parse(req.body);
-      // Upewnij się, że endTime to startTime + duration (bez travel).
-      // Travel jest trzymany osobno w travelMinutes.
-      // Front-end już to wysyła poprawnie (travelMinutes),
-      // ale dla pewności przy tworzeniu slotu "z ręki" logika powinna być spójna.
-      // Zakładamy, że frontend wysyła poprawny endTime (koniec lekcji).
-      const slot = await storage.createSlot(input);
+      // Upewniamy się, że czasy są czyste (0 sekund, 0 ms)
+      const cleanStart = setMilliseconds(
+        setSeconds(new Date(input.startTime), 0),
+        0
+      );
+      const cleanEnd = setMilliseconds(
+        setSeconds(new Date(input.endTime), 0),
+        0
+      );
+
+      const slot = await storage.createSlot({
+        ...input,
+        startTime: cleanStart,
+        endTime: cleanEnd,
+      });
       res.status(201).json(slot);
     } catch (err) {
       console.error(err);
@@ -359,7 +370,22 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const input = insertSlotSchema.partial().parse(req.body);
-      const updated = await storage.updateSlot(id, input);
+
+      const updateData = { ...input };
+      if (input.startTime) {
+        updateData.startTime = setMilliseconds(
+          setSeconds(new Date(input.startTime), 0),
+          0
+        );
+      }
+      if (input.endTime) {
+        updateData.endTime = setMilliseconds(
+          setSeconds(new Date(input.endTime), 0),
+          0
+        );
+      }
+
+      const updated = await storage.updateSlot(id, updateData);
       res.json(updated);
     } catch (err) {
       res.status(500).json({ message: "Błąd aktualizacji slotu" });
@@ -521,7 +547,6 @@ export async function registerRoutes(
         h2.forEach((h) => holidays.add(h));
       }
 
-      // Pobieramy istniejące sloty, żeby nie nadpisać
       const existingSlots = await storage.getSlots(start, addDays(end, 1));
       const existingTimestamps = new Set(
         existingSlots.map((s) => s.startTime.getTime())
@@ -540,7 +565,6 @@ export async function registerRoutes(
           continue;
         }
         const dayOfWeek = getDay(currentDay);
-        // Generujemy tylko jeśli dzień nie jest niedzielą (0)
         if (dayOfWeek !== 0) {
           const fixedLessons = weeklySchedule.filter(
             (l) => l.dayOfWeek === dayOfWeek
@@ -549,6 +573,8 @@ export async function registerRoutes(
             setHours(currentDay, startHour),
             startMinute
           );
+          daySlotStart = setMilliseconds(setSeconds(daySlotStart, 0), 0); // CLEAN
+
           const daySlotEnd = setMinutes(
             setHours(currentDay, endHour),
             endMinute
@@ -562,11 +588,6 @@ export async function registerRoutes(
             const slotStartMin = slotH * 60 + slotM;
             const slotEndMin = slotStartMin + duration;
 
-            // Sprawdzanie kolizji z szablonem stałym
-            // LOGIKA: Czy mój slot (Start-End) koliduje z lekcją z szablonu?
-            // Lekcja z szablonu:
-            // Jeśli 'onsite': zajmuje [lessonStart, lessonEnd]
-            // Jeśli 'commute': zajmuje [lessonStart - travel, lessonEnd] (BO DOJAZD PRZED)
             const isCollision = fixedLessons.some((lesson) => {
               const [lh, lm] = lesson.startTime.split(":").map(Number);
               const lessonStartMin = lh * 60 + lm;
@@ -576,9 +597,8 @@ export async function registerRoutes(
                 lesson.locationType === "commute"
                   ? lesson.travelMinutes || 0
                   : 0;
-              const lessonBusyStart = lessonStartMin - extraTime; // Dojazd PRZED
+              const lessonBusyStart = lessonStartMin - extraTime;
 
-              // Kolizja: jeśli przedział [slotStart, slotEnd] nachodzi na [lessonBusyStart, lessonEndMin]
               return (
                 slotStartMin < lessonEndMin && slotEndMin > lessonBusyStart
               );
@@ -655,8 +675,8 @@ export async function registerRoutes(
           const [hours, minutes] = item.startTime.split(":").map(Number);
           let slotStart = new Date(currentDay);
           slotStart.setHours(hours, minutes, 0, 0);
+          slotStart = setMilliseconds(slotStart, 0); // CLEAN
 
-          // Korekta strefy czasowej
           const { h: plH, m: plM } = getWarsawHourMinute(slotStart);
           const actualMinutes = plH * 60 + plM;
           const desiredMinutes = hours * 60 + minutes;
@@ -669,9 +689,6 @@ export async function registerRoutes(
           if (processedTimes.has(timeKey)) continue;
           processedTimes.add(timeKey);
 
-          // LOGIKA DOJAZDU:
-          // endTime = startTime + duration (SAM CZYSTY CZAS LEKCJI)
-          // travelMinutes = info, że tyle minut PRZED startTime admin jest zajęty.
           const slotEnd = addMinutes(slotStart, item.durationMinutes);
 
           const existingSlot = existingSlots.find(
@@ -687,7 +704,7 @@ export async function registerRoutes(
             isBooked: isBooked,
             studentId: item.studentId,
             topic: topic,
-            endTime: slotEnd, // Czysty czas końca lekcji
+            endTime: slotEnd, // Czysty czas końca lekcji (bez dojazdu)
             price: item.price,
             locationType: item.locationType,
             travelMinutes: item.travelMinutes,
@@ -734,21 +751,22 @@ export async function registerRoutes(
       if (!slot) return res.status(404).send("Termin nie znaleziony");
       if (slot.isBooked) return res.status(409).send("Termin już zajęty");
 
-      // LOGIKA DOJAZDU PRZED LEKCJĄ:
       const travelBuffer = locationType === "commute" ? 30 : 0;
 
-      // Zakres czasowy, który admin będzie miał "zajęty" w wyniku tej rezerwacji:
-      // Start zajętości = Start Lekcji - Dojazd
-      // Koniec zajętości = Start Lekcji + Czas trwania
-      const busyStart = addMinutes(slot.startTime, -travelBuffer);
-      const busyEnd = addMinutes(slot.startTime, durationMinutes);
+      // Clean timestamps
+      const baseStart = setMilliseconds(
+        setSeconds(new Date(slot.startTime), 0),
+        0
+      );
 
-      // Koniec lekcji dla ucznia (bez dojazdu)
-      const lessonEnd = addMinutes(slot.startTime, durationMinutes);
+      // LOGIKA KOLIZJI (DOJAZD PRZED)
+      const busyStart = addMinutes(baseStart, -travelBuffer);
+      const busyEnd = addMinutes(baseStart, durationMinutes);
 
-      // Sprawdzamy kolizje z innymi slotami
-      // Musimy pobrać wszystkie sloty z szerszego zakresu, żeby wykryć nachodzenie
-      const searchStart = addMinutes(busyStart, -180); // Margines na inne sloty z dojazdem
+      const lessonEnd = addMinutes(baseStart, durationMinutes);
+
+      // Search range
+      const searchStart = addMinutes(busyStart, -180);
       const searchEnd = addMinutes(busyEnd, 180);
 
       const potentialCollisions = await db
@@ -763,19 +781,24 @@ export async function registerRoutes(
         );
 
       const isBlockage = potentialCollisions.some((s) => {
-        // Jeśli slot jest zajęty, musimy sprawdzić, czy jego "czas zajętości" koliduje z naszym.
-        // Czas zajętości innego slotu:
-        // sBusyStart = s.startTime - s.travelMinutes
-        // sBusyEnd = s.endTime (zakładając, że endTime w bazie to koniec lekcji)
-
         if (!s.isBooked) return false;
 
-        const sTravel = s.travelMinutes || 0;
-        const sBusyStart = addMinutes(s.startTime, -sTravel);
-        const sBusyEnd = s.endTime; // Koniec lekcji
+        const sStart = setMilliseconds(setSeconds(new Date(s.startTime), 0), 0);
+        // We trust s.endTime is the Pure Lesson End.
+        // If s.locationType is commute, the dojazd is BEFORE sStart.
+        const sEnd = setMilliseconds(setSeconds(new Date(s.endTime), 0), 0);
 
-        // Kolizja: (MyStart < OtherEnd) && (MyEnd > OtherStart)
-        return busyStart < sBusyEnd && busyEnd > sBusyStart;
+        const sExtra = s.locationType === "commute" ? s.travelMinutes || 0 : 0;
+        const sBusyStart = addMinutes(sStart, -sExtra);
+        const sBusyEnd = sEnd;
+
+        // Strict non-overlapping check:
+        // Collision if intervals overlap.
+        // (A_start < B_end) AND (A_end > B_start)
+        return (
+          busyStart.getTime() < sBusyEnd.getTime() &&
+          busyEnd.getTime() > sBusyStart.getTime()
+        );
       });
 
       if (isBlockage) {
@@ -784,31 +807,35 @@ export async function registerRoutes(
         });
       }
 
-      // Aktualizacja slotu
       const updated = await storage.updateSlot(id, {
         isBooked: true,
         studentId: user.id,
         topic: topic || "Matematyka",
-        endTime: lessonEnd, // Ustawiamy czysty koniec lekcji
+        endTime: lessonEnd,
         bookedAt: new Date(),
         locationType: locationType,
         travelMinutes: travelBuffer,
       });
 
-      // Usuwanie pustych slotów, które wpadły w zakres zajętości (cleanup)
+      // Cleanup overlaps
       for (const collision of potentialCollisions) {
-        if (collision.isBooked) continue; // Nie ruszamy zajętych (powinno być wyłapane przez isBlockage, ale na wszelki wypadek)
+        if (collision.isBooked) continue;
+        // Clean timestamps for collision check too
+        const cStart = setMilliseconds(
+          setSeconds(new Date(collision.startTime), 0),
+          0
+        );
 
-        // Jeśli pusty slot w całości zawiera się w czasie zajętości nowej lekcji -> usuwamy
-        // Lub jeśli nachodzi - usuwamy, żeby nie było "dziurawych" slotów
-        if (collision.startTime >= busyStart && collision.startTime < busyEnd) {
+        if (
+          cStart.getTime() >= busyStart.getTime() &&
+          cStart.getTime() < busyEnd.getTime()
+        ) {
           await storage.deleteSlot(collision.id);
         }
       }
 
       res.json(updated);
 
-      // Powiadomienia (bez zmian)
       (async () => {
         try {
           if (user.email)

@@ -170,6 +170,7 @@ export default function TemplateTab() {
       const itemBusyEnd = itemLessonStart + item.durationMinutes;
 
       // Sprawdzenie nachodzenia przedziałów
+      // Strict comparison (< instead of <=)
       return myBusyStart < itemBusyEnd && myBusyEnd > itemBusyStart;
     });
   };

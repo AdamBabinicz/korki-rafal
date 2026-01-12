@@ -11,6 +11,8 @@ import {
   addMinutes,
   isSunday,
   differenceInMinutes,
+  setSeconds,
+  setMilliseconds,
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import {
@@ -164,26 +166,34 @@ export default function CalendarTab() {
   ) => {
     if (!slots) return false;
 
-    // Czas zajętości nowego slotu:
-    // Start fizyczny = start - dojazd (jeśli commute)
-    // Koniec fizyczny = start + duration (zakładamy, że powrót to sprawa prywatna, albo dojazd do nast. lekcji to dojazd nast. lekcji)
+    // Clean Start Timestamp
+    const cleanStart = setMilliseconds(setSeconds(start, 0), 0);
+
+    // My Busy Range:
     const extraTimeStart = locType === "commute" ? travel : 0;
-    const busyStart = addMinutes(start, -extraTimeStart);
-    const busyEnd = addMinutes(start, duration);
+    const busyStart = addMinutes(cleanStart, -extraTimeStart);
+    const busyEnd = addMinutes(cleanStart, duration);
 
     return slots.some((s) => {
       if (excludeSlotId && s.id === excludeSlotId) return false;
 
-      const sStart = new Date(s.startTime);
-      const sEnd = new Date(s.endTime);
+      const sStart = setMilliseconds(setSeconds(new Date(s.startTime), 0), 0);
+      const sEnd = setMilliseconds(setSeconds(new Date(s.endTime), 0), 0);
+
+      // Calculate OTHER slot's busy range based on "Travel Before" logic
       const sExtraTimeStart =
         s.locationType === "commute" ? s.travelMinutes || 0 : 0;
 
       const sBusyStart = addMinutes(sStart, -sExtraTimeStart);
-      const sBusyEnd = sEnd;
+      const sBusyEnd = sEnd; // We trust sEnd is pure lesson end
 
-      // Sprawdzenie nachodzenia przedziałów [busyStart, busyEnd] i [sBusyStart, sBusyEnd]
-      return busyStart < sBusyEnd && busyEnd > sBusyStart;
+      // Strict Intersection:
+      // (MyStart < OtherEnd) AND (MyEnd > OtherStart)
+      // Using .getTime() to avoid object reference issues
+      return (
+        busyStart.getTime() < sBusyEnd.getTime() &&
+        busyEnd.getTime() > sBusyStart.getTime()
+      );
     });
   };
 
@@ -759,7 +769,7 @@ export default function CalendarTab() {
                 if (editFormTime && editFormDuration) {
                   const [h, m] = editFormTime.split(":").map(Number);
                   newStartTime = new Date(editingSlot.startTime);
-                  newStartTime.setHours(h, m);
+                  newStartTime.setHours(h, m, 0, 0);
 
                   // endTime = startTime + duration (BEZ travel)
                   newEndTime = addMinutes(newStartTime, editFormDuration);
