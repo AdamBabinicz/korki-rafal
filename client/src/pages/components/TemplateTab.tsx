@@ -10,6 +10,7 @@ import {
   LayoutTemplate,
   Calendar as CalendarIcon,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { format, addWeeks } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
@@ -55,6 +56,16 @@ const timeToMinutes = (timeStr: string) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
+};
+
+// Helper: obliczanie godziny wyjazdu
+const getDepartureTimeStr = (startTimeStr: string, travelMinutes: number) => {
+  if (!startTimeStr) return "";
+  let minutes = timeToMinutes(startTimeStr) - travelMinutes;
+  if (minutes < 0) minutes += 1440; // obsługa północy (rzadki case)
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
 // Helper: wysyłanie powiadomień
@@ -126,7 +137,7 @@ export default function TemplateTab() {
     }
   }, [editingTemplateItem]);
 
-  // --- KOLIZJE ---
+  // --- KOLIZJE (Dojazd PRZED lekcją) ---
   const checkTemplateCollision = (
     dayOfWeek: number,
     startTimeStr: string,
@@ -137,20 +148,29 @@ export default function TemplateTab() {
   ) => {
     if (!weeklySchedule || !startTimeStr) return false;
 
-    const proposedStartMin = timeToMinutes(startTimeStr);
-    const extraTime = locType === "commute" ? travel : 0;
-    const proposedEndMin = proposedStartMin + duration + extraTime;
+    // Moja zajętość:
+    // Start zajętości = Godzina Lekcji - Dojazd
+    // Koniec zajętości = Godzina Lekcji + Trwanie
+    const proposedLessonStart = timeToMinutes(startTimeStr);
+    const extraTimeStart = locType === "commute" ? travel : 0;
+
+    const myBusyStart = proposedLessonStart - extraTimeStart;
+    const myBusyEnd = proposedLessonStart + duration;
 
     return weeklySchedule.some((item) => {
       if (item.dayOfWeek !== dayOfWeek) return false;
       if (excludeId && item.id === excludeId) return false;
 
-      const itemStartMin = timeToMinutes(item.startTime);
-      const itemExtra =
+      // Zajętość elementu z listy:
+      const itemLessonStart = timeToMinutes(item.startTime);
+      const itemExtraStart =
         item.locationType === "commute" ? item.travelMinutes || 0 : 0;
-      const itemEndMin = itemStartMin + item.durationMinutes + itemExtra;
 
-      return proposedStartMin < itemEndMin && proposedEndMin > itemStartMin;
+      const itemBusyStart = itemLessonStart - itemExtraStart;
+      const itemBusyEnd = itemLessonStart + item.durationMinutes;
+
+      // Sprawdzenie nachodzenia przedziałów
+      return myBusyStart < itemBusyEnd && myBusyEnd > itemBusyStart;
     });
   };
 
@@ -450,7 +470,7 @@ export default function TemplateTab() {
               </Select>
             </div>
             {templateForm.locationType === "commute" && (
-              <div className="animate-in fade-in slide-in-from-top-2">
+              <div className="animate-in fade-in slide-in-from-top-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                 <Label>{t("admin.travel_time")}</Label>
                 <Input
                   type="number"
@@ -462,6 +482,15 @@ export default function TemplateTab() {
                     })
                   }
                 />
+                {templateForm.startTime && (
+                  <div className="text-xs text-orange-700 mt-1 font-medium">
+                    Wyjazd:{" "}
+                    {getDepartureTimeStr(
+                      templateForm.startTime,
+                      parseInt(templateForm.travelMinutes || "0")
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -529,18 +558,30 @@ export default function TemplateTab() {
                     >
                       <div className="font-bold text-lg flex justify-between items-center">
                         {item.startTime}
-                        {isCommute && (
-                          <Car className="h-4 w-4 text-orange-600" />
-                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground mb-2">
+
+                      {isCommute && (
+                        <div className="text-xs text-orange-600 font-medium flex items-center gap-1 mb-1">
+                          <Car className="h-3 w-3" />
+                          Wyjazd:{" "}
+                          {getDepartureTimeStr(
+                            item.startTime,
+                            item.travelMinutes || 0
+                          )}
+                        </div>
+                      )}
+
+                      <div className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
                         {item.durationMinutes} min
                         {isCommute && (
-                          <span className="text-orange-600 ml-1">
-                            (+{item.travelMinutes} {t("admin.commute_suffix")})
+                          <span className="text-orange-600">
+                            {" "}
+                            (+{item.travelMinutes}m)
                           </span>
                         )}
                       </div>
+
                       {student ? (
                         <div className="font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
                           {student.name}
@@ -729,7 +770,7 @@ export default function TemplateTab() {
                 </div>
 
                 {tplFormLocation === "commute" && (
-                  <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                  <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                     <Label>Czas dojazdu (min)</Label>
                     <Input
                       type="number"
@@ -738,6 +779,15 @@ export default function TemplateTab() {
                         setTplFormTravel(parseInt(e.target.value) || 0)
                       }
                     />
+                    {editingTemplateItem.startTime && (
+                      <div className="text-xs text-orange-700 mt-1 font-medium">
+                        Wyjazd:{" "}
+                        {getDepartureTimeStr(
+                          editingTemplateItem.startTime,
+                          tplFormTravel
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

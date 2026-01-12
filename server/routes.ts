@@ -338,6 +338,11 @@ export async function registerRoutes(
     }
     try {
       const input = insertSlotSchema.parse(req.body);
+      // Upewnij się, że endTime to startTime + duration (bez travel).
+      // Travel jest trzymany osobno w travelMinutes.
+      // Front-end już to wysyła poprawnie (travelMinutes),
+      // ale dla pewności przy tworzeniu slotu "z ręki" logika powinna być spójna.
+      // Zakładamy, że frontend wysyła poprawny endTime (koniec lekcji).
       const slot = await storage.createSlot(input);
       res.status(201).json(slot);
     } catch (err) {
@@ -498,6 +503,7 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  // --- GENERATOR SLOTÓW ---
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -515,6 +521,7 @@ export async function registerRoutes(
         h2.forEach((h) => holidays.add(h));
       }
 
+      // Pobieramy istniejące sloty, żeby nie nadpisać
       const existingSlots = await storage.getSlots(start, addDays(end, 1));
       const existingTimestamps = new Set(
         existingSlots.map((s) => s.startTime.getTime())
@@ -533,6 +540,7 @@ export async function registerRoutes(
           continue;
         }
         const dayOfWeek = getDay(currentDay);
+        // Generujemy tylko jeśli dzień nie jest niedzielą (0)
         if (dayOfWeek !== 0) {
           const fixedLessons = weeklySchedule.filter(
             (l) => l.dayOfWeek === dayOfWeek
@@ -554,16 +562,26 @@ export async function registerRoutes(
             const slotStartMin = slotH * 60 + slotM;
             const slotEndMin = slotStartMin + duration;
 
+            // Sprawdzanie kolizji z szablonem stałym
+            // LOGIKA: Czy mój slot (Start-End) koliduje z lekcją z szablonu?
+            // Lekcja z szablonu:
+            // Jeśli 'onsite': zajmuje [lessonStart, lessonEnd]
+            // Jeśli 'commute': zajmuje [lessonStart - travel, lessonEnd] (BO DOJAZD PRZED)
             const isCollision = fixedLessons.some((lesson) => {
               const [lh, lm] = lesson.startTime.split(":").map(Number);
               const lessonStartMin = lh * 60 + lm;
+              const lessonEndMin = lessonStartMin + lesson.durationMinutes;
+
               const extraTime =
                 lesson.locationType === "commute"
                   ? lesson.travelMinutes || 0
                   : 0;
-              const lessonEndMin =
-                lessonStartMin + lesson.durationMinutes + extraTime;
-              return slotStartMin < lessonEndMin && slotEndMin > lessonStartMin;
+              const lessonBusyStart = lessonStartMin - extraTime; // Dojazd PRZED
+
+              // Kolizja: jeśli przedział [slotStart, slotEnd] nachodzi na [lessonBusyStart, lessonEndMin]
+              return (
+                slotStartMin < lessonEndMin && slotEndMin > lessonBusyStart
+              );
             });
 
             if (
@@ -593,6 +611,7 @@ export async function registerRoutes(
     }
   });
 
+  // --- GENERATOR Z SZABLONU (TEMPLATE) ---
   app.post("/api/slots/generate-from-template", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -637,6 +656,7 @@ export async function registerRoutes(
           let slotStart = new Date(currentDay);
           slotStart.setHours(hours, minutes, 0, 0);
 
+          // Korekta strefy czasowej
           const { h: plH, m: plM } = getWarsawHourMinute(slotStart);
           const actualMinutes = plH * 60 + plM;
           const desiredMinutes = hours * 60 + minutes;
@@ -649,10 +669,10 @@ export async function registerRoutes(
           if (processedTimes.has(timeKey)) continue;
           processedTimes.add(timeKey);
 
-          const extraTime =
-            item.locationType === "commute" ? item.travelMinutes || 0 : 0;
-          const totalDuration = item.durationMinutes + extraTime;
-          const slotEnd = addMinutes(slotStart, totalDuration);
+          // LOGIKA DOJAZDU:
+          // endTime = startTime + duration (SAM CZYSTY CZAS LEKCJI)
+          // travelMinutes = info, że tyle minut PRZED startTime admin jest zajęty.
+          const slotEnd = addMinutes(slotStart, item.durationMinutes);
 
           const existingSlot = existingSlots.find(
             (s) => Math.abs(differenceInMinutes(s.startTime, slotStart)) < 2
@@ -667,7 +687,7 @@ export async function registerRoutes(
             isBooked: isBooked,
             studentId: item.studentId,
             topic: topic,
-            endTime: slotEnd,
+            endTime: slotEnd, // Czysty czas końca lekcji
             price: item.price,
             locationType: item.locationType,
             travelMinutes: item.travelMinutes,
@@ -701,6 +721,7 @@ export async function registerRoutes(
     }
   });
 
+  // --- BOOKING (REZERWACJA) ---
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
@@ -713,56 +734,81 @@ export async function registerRoutes(
       if (!slot) return res.status(404).send("Termin nie znaleziony");
       if (slot.isBooked) return res.status(409).send("Termin już zajęty");
 
+      // LOGIKA DOJAZDU PRZED LEKCJĄ:
       const travelBuffer = locationType === "commute" ? 30 : 0;
-      const totalOccupiedMinutes = durationMinutes + travelBuffer;
-      const newEndTime = addMinutes(slot.startTime, totalOccupiedMinutes);
+
+      // Zakres czasowy, który admin będzie miał "zajęty" w wyniku tej rezerwacji:
+      // Start zajętości = Start Lekcji - Dojazd
+      // Koniec zajętości = Start Lekcji + Czas trwania
+      const busyStart = addMinutes(slot.startTime, -travelBuffer);
+      const busyEnd = addMinutes(slot.startTime, durationMinutes);
+
+      // Koniec lekcji dla ucznia (bez dojazdu)
+      const lessonEnd = addMinutes(slot.startTime, durationMinutes);
+
+      // Sprawdzamy kolizje z innymi slotami
+      // Musimy pobrać wszystkie sloty z szerszego zakresu, żeby wykryć nachodzenie
+      const searchStart = addMinutes(busyStart, -180); // Margines na inne sloty z dojazdem
+      const searchEnd = addMinutes(busyEnd, 180);
 
       const potentialCollisions = await db
         .select()
         .from(slots)
         .where(
           and(
-            gte(slots.startTime, slot.startTime),
-            lt(slots.startTime, newEndTime),
+            gte(slots.startTime, searchStart),
+            lte(slots.endTime, searchEnd),
             ne(slots.id, id)
           )
         );
 
-      const isBlockage = potentialCollisions.some(
-        (s) =>
-          s.isBooked ||
-          (s.startTime < newEndTime && s.endTime > newEndTime && s.isBooked)
-      );
+      const isBlockage = potentialCollisions.some((s) => {
+        // Jeśli slot jest zajęty, musimy sprawdzić, czy jego "czas zajętości" koliduje z naszym.
+        // Czas zajętości innego slotu:
+        // sBusyStart = s.startTime - s.travelMinutes
+        // sBusyEnd = s.endTime (zakładając, że endTime w bazie to koniec lekcji)
+
+        if (!s.isBooked) return false;
+
+        const sTravel = s.travelMinutes || 0;
+        const sBusyStart = addMinutes(s.startTime, -sTravel);
+        const sBusyEnd = s.endTime; // Koniec lekcji
+
+        // Kolizja: (MyStart < OtherEnd) && (MyEnd > OtherStart)
+        return busyStart < sBusyEnd && busyEnd > sBusyStart;
+      });
 
       if (isBlockage) {
-        return res
-          .status(409)
-          .json({ message: "Wybrany czas nachodzi na inną zajętą lekcję." });
+        return res.status(409).json({
+          message: "Wybrany czas (z dojazdem) koliduje z inną lekcją.",
+        });
       }
 
+      // Aktualizacja slotu
       const updated = await storage.updateSlot(id, {
         isBooked: true,
         studentId: user.id,
         topic: topic || "Matematyka",
-        endTime: newEndTime,
+        endTime: lessonEnd, // Ustawiamy czysty koniec lekcji
         bookedAt: new Date(),
         locationType: locationType,
         travelMinutes: travelBuffer,
       });
 
+      // Usuwanie pustych slotów, które wpadły w zakres zajętości (cleanup)
       for (const collision of potentialCollisions) {
-        if (collision.endTime <= newEndTime) {
+        if (collision.isBooked) continue; // Nie ruszamy zajętych (powinno być wyłapane przez isBlockage, ale na wszelki wypadek)
+
+        // Jeśli pusty slot w całości zawiera się w czasie zajętości nowej lekcji -> usuwamy
+        // Lub jeśli nachodzi - usuwamy, żeby nie było "dziurawych" slotów
+        if (collision.startTime >= busyStart && collision.startTime < busyEnd) {
           await storage.deleteSlot(collision.id);
-        } else if (
-          collision.startTime < newEndTime &&
-          collision.endTime > newEndTime
-        ) {
-          await storage.updateSlot(collision.id, { startTime: newEndTime });
         }
       }
 
       res.json(updated);
 
+      // Powiadomienia (bez zmian)
       (async () => {
         try {
           if (user.email)

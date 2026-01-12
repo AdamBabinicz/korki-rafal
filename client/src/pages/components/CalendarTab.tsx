@@ -23,6 +23,7 @@ import {
   Car,
   MapPin,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -139,24 +140,21 @@ export default function CalendarTab() {
 
   useEffect(() => {
     if (editingSlot) {
-      const totalDuration = differenceInMinutes(
+      // Obliczanie czasu trwania lekcji (czystego)
+      const duration = differenceInMinutes(
         new Date(editingSlot.endTime),
         new Date(editingSlot.startTime)
       );
-      const travel = editingSlot.travelMinutes || 0;
-      const lessonDuration = totalDuration - travel;
-      const finalDuration = lessonDuration > 0 ? lessonDuration : 60;
 
       setEditFormTime(format(new Date(editingSlot.startTime), "HH:mm"));
-      setEditFormDuration(finalDuration);
-      setEditFormPrice(
-        editingSlot.price || Math.ceil((finalDuration / 60) * 80)
-      );
+      setEditFormDuration(duration > 0 ? duration : 60);
+      setEditFormPrice(editingSlot.price || Math.ceil((duration / 60) * 80));
       setEditFormLocation(editingSlot.locationType || "onsite");
-      setEditFormTravel(travel);
+      setEditFormTravel(editingSlot.travelMinutes || 0);
     }
   }, [editingSlot]);
 
+  // --- ZMODYFIKOWANA LOGIKA KOLIZJI (DOJAZD PRZED) ---
   const checkCollision = (
     start: Date,
     duration: number,
@@ -165,15 +163,27 @@ export default function CalendarTab() {
     excludeSlotId?: number
   ) => {
     if (!slots) return false;
-    const extraTime = locType === "commute" ? travel : 0;
-    const totalMinutes = duration + extraTime;
-    const end = addMinutes(start, totalMinutes);
+
+    // Czas zajętości nowego slotu:
+    // Start fizyczny = start - dojazd (jeśli commute)
+    // Koniec fizyczny = start + duration (zakładamy, że powrót to sprawa prywatna, albo dojazd do nast. lekcji to dojazd nast. lekcji)
+    const extraTimeStart = locType === "commute" ? travel : 0;
+    const busyStart = addMinutes(start, -extraTimeStart);
+    const busyEnd = addMinutes(start, duration);
 
     return slots.some((s) => {
       if (excludeSlotId && s.id === excludeSlotId) return false;
+
       const sStart = new Date(s.startTime);
       const sEnd = new Date(s.endTime);
-      return start < sEnd && end > sStart;
+      const sExtraTimeStart =
+        s.locationType === "commute" ? s.travelMinutes || 0 : 0;
+
+      const sBusyStart = addMinutes(sStart, -sExtraTimeStart);
+      const sBusyEnd = sEnd;
+
+      // Sprawdzenie nachodzenia przedziałów [busyStart, busyEnd] i [sBusyStart, sBusyEnd]
+      return busyStart < sBusyEnd && busyEnd > sBusyStart;
     });
   };
 
@@ -321,8 +331,9 @@ export default function CalendarTab() {
         ? newSlotData.travelMinutes || 0
         : 0;
     const lessonDuration = newSlotData.duration || 60;
-    const totalDuration = lessonDuration + travel;
-    const end = addMinutes(newSlotData.startTime, totalDuration);
+
+    // endTime = startTime + duration (BEZ travel)
+    const end = addMinutes(newSlotData.startTime, lessonDuration);
 
     const payload: any = {
       startTime: newSlotData.startTime,
@@ -420,6 +431,11 @@ export default function CalendarTab() {
                         (u) => u.id === slot.studentId
                       );
                       const isCommute = slot.locationType === "commute";
+                      const startTime = new Date(slot.startTime);
+                      const commuteStart = isCommute
+                        ? addMinutes(startTime, -(slot.travelMinutes || 0))
+                        : null;
+
                       return (
                         <div
                           key={slot.id}
@@ -430,15 +446,23 @@ export default function CalendarTab() {
                           }`}
                         >
                           <div className="font-bold flex justify-between items-center mb-1">
-                            <span className="flex items-center gap-1">
-                              {format(new Date(slot.startTime), "HH:mm")}
-                              {isCommute && (
-                                <Car className="h-3 w-3 text-orange-600" />
+                            <div className="flex flex-col">
+                              <span className="flex items-center gap-1 text-base">
+                                {format(startTime, "HH:mm")}
+                              </span>
+                              {isCommute && commuteStart && (
+                                <span
+                                  className="text-xs text-orange-600 flex items-center gap-1 mt-0.5"
+                                  title="Godzina wyjazdu"
+                                >
+                                  <Car className="h-3 w-3" />
+                                  Wyjazd: {format(commuteStart, "HH:mm")}
+                                </span>
                               )}
-                            </span>
+                            </div>
 
                             {/* --- PRZYCISKI AKCJI --- */}
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 bg-white/50 dark:bg-black/50 rounded-md p-1 shadow-sm backdrop-blur-sm">
                               {/* EDYCJA (Dostępna zawsze) */}
                               <Button
                                 variant="ghost"
@@ -486,27 +510,28 @@ export default function CalendarTab() {
                           </div>
 
                           {slot.isBooked ? (
-                            <div className="space-y-1">
+                            <div className="space-y-1 mt-2">
                               <div className="font-medium text-blue-700 dark:text-blue-300">
                                 {student?.name || t("admin.unknown_student")}
                               </div>
-                              <div className="flex justify-between items-center text-xs mt-1">
+                              <div className="flex justify-between items-center text-xs mt-1 pt-1 border-t border-blue-200/50">
                                 <span className="font-semibold">
                                   {slot.price} PLN
                                 </span>
                                 {isCommute && (
                                   <span className="text-orange-600 font-medium">
-                                    +{slot.travelMinutes} min
+                                    +{slot.travelMinutes} min dojazdu
                                   </span>
                                 )}
                               </div>
                             </div>
                           ) : (
-                            <div className="text-green-700 dark:text-green-400 font-medium flex justify-between items-center">
+                            <div className="text-green-700 dark:text-green-400 font-medium flex justify-between items-center mt-2">
                               <span>{t("admin.available")}</span>
                               {isCommute && (
-                                <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded">
-                                  +{slot.travelMinutes}m
+                                <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {slot.travelMinutes}m
                                 </span>
                               )}
                             </div>
@@ -522,13 +547,14 @@ export default function CalendarTab() {
         })}
       </div>
 
-      {/* --- ADD SLOT MODAL (Bez zmian) --- */}
+      {/* --- ADD SLOT MODAL --- */}
       <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("admin.new_slot_title")}</DialogTitle>
             <DialogDescription>
-              Wprowadź szczegóły nowego terminu.
+              Wprowadź godzinę rozpoczęcia <b>lekcji</b>. Jeśli wybierzesz
+              dojazd, system zarezerwuje czas <b>przed</b> lekcją.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -629,7 +655,7 @@ export default function CalendarTab() {
               </Select>
             </div>
             {newSlotData.locationType === "commute" && (
-              <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+              <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                 <Label>{t("admin.travel_time")}</Label>
                 <Input
                   type="number"
@@ -641,6 +667,20 @@ export default function CalendarTab() {
                     })
                   }
                 />
+                {newSlotData.startTime && newSlotData.travelMinutes && (
+                  <div className="text-xs text-orange-700 mt-1">
+                    Będziesz musiał wyjechać o:{" "}
+                    <b>
+                      {format(
+                        addMinutes(
+                          newSlotData.startTime,
+                          -newSlotData.travelMinutes
+                        ),
+                        "HH:mm"
+                      )}
+                    </b>
+                  </div>
+                )}
               </div>
             )}
             <div className="grid gap-2">
@@ -720,10 +760,9 @@ export default function CalendarTab() {
                   const [h, m] = editFormTime.split(":").map(Number);
                   newStartTime = new Date(editingSlot.startTime);
                   newStartTime.setHours(h, m);
-                  const totalDuration =
-                    editFormDuration +
-                    (editFormLocation === "commute" ? editFormTravel : 0);
-                  newEndTime = addMinutes(newStartTime, totalDuration);
+
+                  // endTime = startTime + duration (BEZ travel)
+                  newEndTime = addMinutes(newStartTime, editFormDuration);
                 }
 
                 updateSlotMutation.mutate({
@@ -791,7 +830,7 @@ export default function CalendarTab() {
                 </Select>
               </div>
               {editFormLocation === "commute" && (
-                <div className="grid gap-2 animate-in fade-in slide-in-from-top-2">
+                <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-md">
                   <Label>{t("admin.travel_time")}</Label>
                   <Input
                     type="number"
@@ -800,6 +839,22 @@ export default function CalendarTab() {
                       setEditFormTravel(parseInt(e.target.value) || 0)
                     }
                   />
+                  {editFormTime && (
+                    <div className="text-xs text-orange-700 mt-1">
+                      Będziesz musiał wyjechać o:{" "}
+                      <b>
+                        {(() => {
+                          const [h, m] = editFormTime.split(":").map(Number);
+                          const date = new Date();
+                          date.setHours(h, m);
+                          return format(
+                            addMinutes(date, -editFormTravel),
+                            "HH:mm"
+                          );
+                        })()}
+                      </b>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="grid gap-2">
