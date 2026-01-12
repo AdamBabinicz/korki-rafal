@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Wallet, Check, Eye } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { format } from "date-fns";
+import { pl } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,9 +26,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import type { User, InsertUser } from "@shared/schema";
+import type { User, InsertUser, Slot } from "@shared/schema";
 
-// Helper do powiadomień telegram (możesz go później wydzielić do utils.ts)
+interface UserWithBalance extends User {
+  balance?: number;
+  unpaidCount?: number;
+}
+
 const sendTelegramNotification = async (message: string) => {
   const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
   const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
@@ -52,13 +58,22 @@ export default function StudentsTab() {
 
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
+  const [paymentDetailsStudentId, setPaymentDetailsStudentId] = useState<
+    number | null
+  >(null);
+
   const [newStudent, setNewStudent] = useState<Partial<InsertUser>>({
     role: "student",
     defaultPrice: 80,
   });
 
-  const { data: users } = useQuery<User[]>({
+  const { data: users } = useQuery<UserWithBalance[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: unpaidSlots } = useQuery<Slot[]>({
+    queryKey: ["/api/users", paymentDetailsStudentId, "unpaid"],
+    enabled: !!paymentDetailsStudentId,
   });
 
   const createUserMutation = useMutation({
@@ -124,6 +139,46 @@ export default function StudentsTab() {
       );
     },
   });
+
+  const settleAllDebtMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("POST", `/api/users/${id}/settle`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users", paymentDetailsStudentId, "unpaid"],
+      });
+      toast({
+        title: "Rozliczono ucznia",
+        description: "Wszystkie zaległości uregulowane.",
+      });
+      setPaymentDetailsStudentId(null);
+    },
+  });
+
+  const paySingleSlotMutation = useMutation({
+    mutationFn: async (slotId: number) => {
+      const res = await apiRequest("PATCH", `/api/slots/${slotId}`, {
+        isPaid: true,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({
+        queryKey: ["/api/users", paymentDetailsStudentId, "unpaid"],
+      });
+      toast({
+        title: "Opłacono lekcję",
+        description: "Status zmieniony na opłacony.",
+      });
+    },
+  });
+
+  const selectedStudent = users?.find((u) => u.id === paymentDetailsStudentId);
+  const editingStudent = users?.find((u) => u.id === editingStudentId);
 
   return (
     <Card className="animate-in fade-in duration-500">
@@ -211,16 +266,16 @@ export default function StudentsTab() {
       </CardHeader>
       <CardContent>
         <div className="rounded-md border overflow-x-auto">
-          <table className="w-full text-sm min-w-[600px]">
+          <table className="w-full text-sm min-w-[800px]">
             <thead className="bg-muted/50 border-b">
               <tr className="text-left">
                 <th className="p-3 font-medium hidden md:table-cell">
                   {t("admin.table.id")}
                 </th>
                 <th className="p-3 font-medium">{t("admin.table.name")}</th>
-                <th className="p-3 font-medium">{t("admin.table.username")}</th>
                 <th className="p-3 font-medium">{t("admin.table.email")}</th>
                 <th className="p-3 font-medium">{t("admin.table.phone")}</th>
+                <th className="p-3 font-medium text-center">Należności</th>
                 <th className="p-3 font-medium">
                   {t("admin.table.admin_notes")}
                 </th>
@@ -238,14 +293,38 @@ export default function StudentsTab() {
                     className="border-b last:border-0 hover:bg-muted/20"
                   >
                     <td className="p-3 hidden md:table-cell">{student.id}</td>
-                    <td className="p-3 font-medium">{student.name}</td>
-                    <td className="p-3 text-muted-foreground">
-                      {student.username}
+                    <td className="p-3 font-medium">
+                      {student.name}
+                      <div className="text-xs text-muted-foreground">
+                        @{student.username}
+                      </div>
                     </td>
                     <td className="p-3">{student.email || "-"}</td>
                     <td className="p-3">{student.phone || "-"}</td>
+
+                    <td className="p-3 text-center">
+                      {(student.balance || 0) > 0 ? (
+                        <Button
+                          variant="ghost"
+                          className="h-auto py-1 px-2 flex flex-col items-center gap-0 hover:bg-red-50 text-red-600"
+                          onClick={() => setPaymentDetailsStudentId(student.id)}
+                        >
+                          <span className="font-bold text-base">
+                            {student.balance} PLN
+                          </span>
+                          <span className="text-xs font-normal underline decoration-dotted">
+                            pokaż {student.unpaidCount} lekcji
+                          </span>
+                        </Button>
+                      ) : (
+                        <span className="text-green-600 flex items-center justify-center gap-1 text-xs font-medium">
+                          <Check className="h-3 w-3" /> Czysto
+                        </span>
+                      )}
+                    </td>
+
                     <td className="p-3">
-                      <div className="max-w-[200px] truncate opacity-80">
+                      <div className="max-w-[200px] truncate opacity-80 text-xs">
                         {student.adminNotes || "-"}
                       </div>
                     </td>
@@ -270,7 +349,8 @@ export default function StudentsTab() {
                           <DialogContent>
                             <DialogHeader>
                               <DialogTitle>
-                                {t("admin.edit_student_title")}: {student.name}
+                                {t("admin.edit_student_title")}:{" "}
+                                {editingStudent?.name}
                               </DialogTitle>
                               <DialogDescription>
                                 Edytuj szczegóły konta ucznia.
@@ -314,14 +394,14 @@ export default function StudentsTab() {
                                   <Label>{t("admin.table.name")}</Label>
                                   <Input
                                     name="name"
-                                    defaultValue={student.name}
+                                    defaultValue={editingStudent?.name}
                                   />
                                 </div>
                                 <div className="space-y-2">
                                   <Label>{t("admin.table.username")}</Label>
                                   <Input
                                     name="username"
-                                    defaultValue={student.username}
+                                    defaultValue={editingStudent?.username}
                                     readOnly
                                     className="bg-muted"
                                   />
@@ -332,14 +412,14 @@ export default function StudentsTab() {
                                   <Label>{t("admin.table.email")}</Label>
                                   <Input
                                     name="email"
-                                    defaultValue={student.email || ""}
+                                    defaultValue={editingStudent?.email || ""}
                                   />
                                 </div>
                                 <div className="space-y-2">
                                   <Label>{t("admin.table.phone")}</Label>
                                   <Input
                                     name="phone"
-                                    defaultValue={student.phone || ""}
+                                    defaultValue={editingStudent?.phone || ""}
                                   />
                                 </div>
                               </div>
@@ -347,25 +427,39 @@ export default function StudentsTab() {
                                 <Label>{t("admin.table.address")}</Label>
                                 <Input
                                   name="address"
-                                  defaultValue={student.address || ""}
+                                  defaultValue={editingStudent?.address || ""}
                                 />
                               </div>
                               <div className="space-y-2">
                                 <Label>{t("admin.table.admin_notes")}</Label>
                                 <Textarea
                                   name="adminNotes"
-                                  defaultValue={student.adminNotes || ""}
+                                  defaultValue={
+                                    editingStudent?.adminNotes || ""
+                                  }
                                   placeholder={t("admin.notes_placeholder")}
                                 />
                               </div>
-                              <div className="space-y-2">
-                                <Label>{t("admin.new_password")}</Label>
-                                <Input
-                                  autoComplete="new-password"
-                                  name="password"
-                                  type="password"
-                                  placeholder="..."
-                                />
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <Label>{t("admin.default_price")}</Label>
+                                  <Input
+                                    name="defaultPrice"
+                                    type="number"
+                                    defaultValue={
+                                      editingStudent?.defaultPrice || 80
+                                    }
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <Label>{t("admin.new_password")}</Label>
+                                  <Input
+                                    autoComplete="new-password"
+                                    name="password"
+                                    type="password"
+                                    placeholder="..."
+                                  />
+                                </div>
                               </div>
                               <DialogFooter>
                                 <Button type="submit">
@@ -398,7 +492,7 @@ export default function StudentsTab() {
                 users.filter((u) => u.role === "student").length === 0) && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     className="p-8 text-center text-muted-foreground"
                   >
                     {t("admin.no_students")}
@@ -408,6 +502,86 @@ export default function StudentsTab() {
             </tbody>
           </table>
         </div>
+
+        <Dialog
+          open={!!paymentDetailsStudentId}
+          onOpenChange={(open) => !open && setPaymentDetailsStudentId(null)}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Zaległości: {selectedStudent?.name}</DialogTitle>
+              <DialogDescription>
+                Poniżej lista nieopłaconych lekcji. Możesz opłacić je pojedynczo
+                lub wszystkie naraz.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="max-h-[300px] overflow-y-auto border rounded-md my-4">
+              {unpaidSlots?.length === 0 && (
+                <div className="p-4 text-center text-muted-foreground">
+                  Brak zaległości!
+                </div>
+              )}
+              {unpaidSlots?.map((slot) => {
+                const price = slot.price ?? selectedStudent?.defaultPrice ?? 0;
+                return (
+                  <div
+                    key={slot.id}
+                    className="flex items-center justify-between p-3 border-b last:border-0 hover:bg-muted/10"
+                  >
+                    <div>
+                      <div className="font-medium">
+                        {format(new Date(slot.startTime), "d MMMM (EEEE)", {
+                          locale: pl,
+                        })}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(slot.startTime), "HH:mm", {
+                          locale: pl,
+                        })}{" "}
+                        -{" "}
+                        {format(new Date(slot.endTime), "HH:mm", {
+                          locale: pl,
+                        })}
+                        {slot.locationType === "commute" && " (Dojazd)"}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-red-600">{price} zł</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => paySingleSlotMutation.mutate(slot.id)}
+                        disabled={paySingleSlotMutation.isPending}
+                      >
+                        <Wallet className="w-3 h-3 mr-1" />
+                        Zapłać
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <DialogFooter className="flex sm:justify-between gap-2">
+              <div className="text-sm text-muted-foreground self-center">
+                Suma:{" "}
+                <span className="font-bold text-foreground">
+                  {selectedStudent?.balance} PLN
+                </span>
+              </div>
+              <Button
+                variant="default"
+                onClick={() =>
+                  paymentDetailsStudentId &&
+                  settleAllDebtMutation.mutate(paymentDetailsStudentId)
+                }
+              >
+                Rozlicz Wszystko ({selectedStudent?.balance} zł)
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

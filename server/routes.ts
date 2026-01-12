@@ -102,7 +102,6 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupAuth(app);
 
-  // --- AUTOMATYCZNA MIGRACJA BAZY DANYCH ---
   try {
     console.log("[DB] Sprawdzanie struktury tabel...");
     await db.execute(
@@ -114,15 +113,12 @@ export async function registerRoutes(
     await db.execute(
       sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
-
-    // Kluczowe dla Twojego problemu:
     await db.execute(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';`
     );
     await db.execute(
       sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
     );
-
     await db.execute(
       sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`
     );
@@ -131,16 +127,93 @@ export async function registerRoutes(
     console.error("[DB] Błąd auto-migracji:", err);
   }
 
-  // --- ROUTES ---
-
   app.get("/api/users", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
       return res.status(403).send("Brak dostępu");
     }
     res.header("Cache-Control", "no-store, max-age=0");
-    const users = await storage.getAllUsers();
-    res.json(users);
+
+    try {
+      const allUsers = await storage.getAllUsers();
+      const unpaidSlots = await db
+        .select()
+        .from(slots)
+        .where(and(eq(slots.isBooked, true), eq(slots.isPaid, false)));
+
+      const usersWithBalance = allUsers.map((u) => {
+        const studentSlots = unpaidSlots.filter((s) => s.studentId === u.id);
+        const balance = studentSlots.reduce((sum, s) => {
+          const price = s.price ?? u.defaultPrice ?? 0;
+          return sum + price;
+        }, 0);
+
+        return {
+          ...u,
+          balance,
+          unpaidCount: studentSlots.length,
+        };
+      });
+
+      res.json(usersWithBalance);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Błąd pobierania użytkowników" });
+    }
+  });
+
+  app.get("/api/users/:id/unpaid", async (req, res) => {
+    const user = req.user as User;
+    if (!req.isAuthenticated() || user.role !== "admin") {
+      return res.status(403).send("Brak dostępu");
+    }
+    const studentId = parseInt(req.params.id);
+
+    try {
+      const unpaidSlots = await db
+        .select()
+        .from(slots)
+        .where(
+          and(
+            eq(slots.studentId, studentId),
+            eq(slots.isBooked, true),
+            eq(slots.isPaid, false)
+          )
+        )
+        .orderBy(desc(slots.startTime));
+
+      res.json(unpaidSlots);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Błąd pobierania lekcji" });
+    }
+  });
+
+  app.post("/api/users/:id/settle", async (req, res) => {
+    const user = req.user as User;
+    if (!req.isAuthenticated() || user.role !== "admin") {
+      return res.status(403).send("Brak dostępu");
+    }
+    const studentId = parseInt(req.params.id);
+
+    try {
+      const result = await db
+        .update(slots)
+        .set({ isPaid: true })
+        .where(
+          and(
+            eq(slots.studentId, studentId),
+            eq(slots.isBooked, true),
+            eq(slots.isPaid, false)
+          )
+        )
+        .returning();
+
+      res.json({ message: "Rozliczono", count: result.length });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Błąd rozliczania ucznia" });
+    }
   });
 
   app.post("/api/users", async (req, res) => {
@@ -191,12 +264,10 @@ export async function registerRoutes(
     }
   });
 
-  // --- ZMIANA DANYCH PROFILU (W TYM HASŁA) ---
   app.patch("/api/user", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
     try {
-      // Rozszerzamy schemat o hasło
       const updateSchema = z.object({
         email: z
           .string()
@@ -204,7 +275,7 @@ export async function registerRoutes(
           .optional()
           .or(z.literal("")),
         phone: z.string().optional(),
-        password: z.string().optional(), // Dodano obsługę hasła
+        password: z.string().optional(),
       });
 
       const { email, phone, password } = updateSchema.parse(req.body);
@@ -218,7 +289,6 @@ export async function registerRoutes(
 
       const updatedUser = await storage.updateUser(user.id, updateData);
 
-      // Ważne: Aktualizujemy sesję po zmianie danych (zwłaszcza hasła)
       req.login(updatedUser, (err) => {
         if (err) {
           console.error("Błąd aktualizacji sesji:", err);
@@ -245,8 +315,6 @@ export async function registerRoutes(
     await storage.deleteUser(id);
     res.sendStatus(204);
   });
-
-  // --- SLOTY ---
 
   app.get("/api/slots", async (req, res) => {
     try {
@@ -303,8 +371,6 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
-  // --- SZABLON TYGODNIOWY ---
-
   app.get("/api/weekly-schedule", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const schedule = await storage.getWeeklySchedule();
@@ -334,12 +400,7 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const input = insertWeeklyScheduleSchema.partial().parse(req.body);
-      console.log(
-        `[PATCH Template ID=${id}] Dane wejściowe:`,
-        JSON.stringify(input)
-      );
       const updated = await storage.updateWeeklyScheduleItem(id, input);
-      console.log(`[PATCH Template ID=${id}] Zaktualizowano pomyślnie.`);
       res.json(updated);
     } catch (err) {
       console.error("[PATCH Template Error]", err);
@@ -356,8 +417,6 @@ export async function registerRoutes(
     await storage.deleteWeeklyScheduleItem(id);
     res.sendStatus(204);
   });
-
-  // --- WAITLIST ---
 
   app.get("/api/waitlist", async (req, res) => {
     const user = req.user as User;
@@ -397,7 +456,6 @@ export async function registerRoutes(
 
       res.status(201).json(entry);
 
-      // Fire-and-forget
       (async () => {
         try {
           const allUsers = await storage.getAllUsers();
@@ -413,11 +471,6 @@ export async function registerRoutes(
             );
           }
           const safeName = anonymizeName(user.name, user.id);
-          const formattedDate = format(
-            new Date(input.date),
-            "EEEE, d MMMM yyyy",
-            { locale: pl }
-          );
           const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
           await sendSafeTelegramAlert(
             new Date(input.date),
@@ -444,8 +497,6 @@ export async function registerRoutes(
     await db.delete(waitlist).where(eq(waitlist.id, id));
     res.sendStatus(204);
   });
-
-  // --- GENERATORY ---
 
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
@@ -650,7 +701,6 @@ export async function registerRoutes(
     }
   });
 
-  // --- REZERWACJA / BOOKING ---
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
