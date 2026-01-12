@@ -65,7 +65,7 @@ export default function RequestsTab() {
         <div className="space-y-4">
           {waitlist?.length === 0 && (
             <div className="text-center py-12 text-muted-foreground border rounded-md border-dashed">
-              {t("admin.no_requests")}
+              {t("admin.requests_empty")}
             </div>
           )}
 
