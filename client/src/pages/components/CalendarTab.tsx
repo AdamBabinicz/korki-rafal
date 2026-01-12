@@ -157,6 +157,8 @@ export default function CalendarTab() {
   }, [editingSlot]);
 
   // --- ZMODYFIKOWANA LOGIKA KOLIZJI (DOJAZD PRZED) ---
+  // Używamy setSeconds(..., 0) i setMilliseconds(..., 0) aby uniknąć błędów
+  // wynikających z ułamków sekund przy sprawdzaniu "stykających się" lekcji.
   const checkCollision = (
     start: Date,
     duration: number,
@@ -167,7 +169,7 @@ export default function CalendarTab() {
     if (!slots) return false;
 
     // Clean Start Timestamp
-    const cleanStart = setMilliseconds(setSeconds(start, 0), 0);
+    const cleanStart = setMilliseconds(setSeconds(new Date(start), 0), 0);
 
     // My Busy Range:
     const extraTimeStart = locType === "commute" ? travel : 0;

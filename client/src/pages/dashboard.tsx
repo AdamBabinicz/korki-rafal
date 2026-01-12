@@ -36,8 +36,6 @@ import {
   isFuture,
   subDays,
   addYears,
-  differenceInMinutes,
-  addMinutes,
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
 import { Link } from "wouter";
@@ -136,17 +134,11 @@ export default function DashboardPage() {
     });
   }
 
-  // --- HELPER: Obliczanie końca lekcji DLA UCZNIA (bez dojazdu) ---
+  // --- HELPER: Obliczanie końca lekcji DLA UCZNIA ---
+  // POPRAWKA: Teraz endTime w bazie to czysty koniec lekcji.
+  // Nie odejmujemy już travelMinutes.
   const getStudentEndTime = (slot: Slot) => {
-    const totalDuration = differenceInMinutes(
-      new Date(slot.endTime),
-      new Date(slot.startTime)
-    );
-    // Używamy Number() dla pewności, gdyby baza zwróciła string
-    const travelTime = Number(slot.travelMinutes) || 0;
-    const lessonDuration = totalDuration - travelTime;
-
-    return addMinutes(new Date(slot.startTime), lessonDuration);
+    return new Date(slot.endTime);
   };
 
   // --- LOGIKA WYŚWIETLANIA LEKCJI ---
@@ -257,7 +249,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="text-sm text-muted-foreground flex items-center gap-2">
                           <Clock className="h-4 w-4" />
-                          {/* ZMIANA: Wyświetlamy czas lekcji bez dojazdu */}
+                          {/* Wyświetlamy czas lekcji */}
                           {format(new Date(slot.startTime), "HH:mm")} -{" "}
                           {format(getStudentEndTime(slot), "HH:mm")}
                         </div>
