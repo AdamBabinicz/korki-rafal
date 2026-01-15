@@ -135,8 +135,6 @@ export default function DashboardPage() {
   }
 
   // --- HELPER: Obliczanie końca lekcji DLA UCZNIA ---
-  // POPRAWKA: Teraz endTime w bazie to czysty koniec lekcji.
-  // Nie odejmujemy już travelMinutes.
   const getStudentEndTime = (slot: Slot) => {
     return new Date(slot.endTime);
   };
