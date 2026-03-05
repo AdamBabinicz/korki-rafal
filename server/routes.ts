@@ -54,6 +54,17 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
+/**
+ * FUNKCJA NAPRAWCZA: Konwersja czasu serwera na czas lokalny (Warszawa)
+ * aby wyeliminować błąd przesunięcia 1h w powiadomieniach.
+ */
+function getWarsawDate(date: Date): Date {
+  const dateString = date.toLocaleString("en-US", {
+    timeZone: "Europe/Warsaw",
+  });
+  return new Date(dateString);
+}
+
 function getWarsawHourMinute(date: Date) {
   const plTimeStr = date.toLocaleString("en-US", {
     timeZone: "Europe/Warsaw",
@@ -85,7 +96,7 @@ async function getPublicHolidays(year: number): Promise<Set<string>> {
   try {
     console.log(`Pobieranie świąt na rok ${year}...`);
     const response = await fetch(
-      `https://date.nager.at/api/v3/PublicHolidays/${year}/PL`
+      `https://date.nager.at/api/v3/PublicHolidays/${year}/PL`,
     );
     if (!response.ok) return new Set();
     const data = (await response.json()) as { date: string }[];
@@ -100,29 +111,29 @@ async function getPublicHolidays(year: number): Promise<Set<string>> {
 
 export async function registerRoutes(
   httpServer: Server,
-  app: Express
+  app: Express,
 ): Promise<Server> {
   setupAuth(app);
 
   try {
     console.log("[DB] Sprawdzanie struktury tabel...");
     await db.execute(
-      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;`
+      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;`,
     );
     await db.execute(
-      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS location_type TEXT;`
+      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS location_type TEXT;`,
     );
     await db.execute(
-      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
+      sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`,
     );
     await db.execute(
-      sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';`
+      sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS location_type TEXT DEFAULT 'onsite';`,
     );
     await db.execute(
-      sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`
+      sql`ALTER TABLE weekly_schedule ADD COLUMN IF NOT EXISTS travel_minutes INTEGER DEFAULT 0;`,
     );
     await db.execute(
-      sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`
+      sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`,
     );
     console.log("[DB] Struktura tabel jest poprawna.");
   } catch (err) {
@@ -179,8 +190,8 @@ export async function registerRoutes(
           and(
             eq(slots.studentId, studentId),
             eq(slots.isBooked, true),
-            eq(slots.isPaid, false)
-          )
+            eq(slots.isPaid, false),
+          ),
         )
         .orderBy(desc(slots.startTime));
 
@@ -206,8 +217,8 @@ export async function registerRoutes(
           and(
             eq(slots.studentId, studentId),
             eq(slots.isBooked, true),
-            eq(slots.isPaid, false)
-          )
+            eq(slots.isPaid, false),
+          ),
         )
         .returning();
 
@@ -340,14 +351,13 @@ export async function registerRoutes(
     }
     try {
       const input = insertSlotSchema.parse(req.body);
-      // Upewniamy się, że czasy są czyste (0 sekund, 0 ms)
       const cleanStart = setMilliseconds(
         setSeconds(new Date(input.startTime), 0),
-        0
+        0,
       );
       const cleanEnd = setMilliseconds(
         setSeconds(new Date(input.endTime), 0),
-        0
+        0,
       );
 
       const slot = await storage.createSlot({
@@ -375,13 +385,13 @@ export async function registerRoutes(
       if (input.startTime) {
         updateData.startTime = setMilliseconds(
           setSeconds(new Date(input.startTime), 0),
-          0
+          0,
         );
       }
       if (input.endTime) {
         updateData.endTime = setMilliseconds(
           setSeconds(new Date(input.endTime), 0),
-          0
+          0,
         );
       }
 
@@ -492,20 +502,21 @@ export async function registerRoutes(
           const allUsers = await storage.getAllUsers();
           const admin = allUsers.find((u) => u.role === "admin");
           const adminEmail = admin?.email || process.env.EMAIL_USER;
+          const warsawDate = getWarsawDate(new Date(input.date));
 
           if (adminEmail) {
             await sendWaitlistNotificationToAdmin(
               adminEmail,
               user.name,
-              new Date(input.date),
-              input.note
+              warsawDate,
+              input.note,
             );
           }
           const safeName = anonymizeName(user.name, user.id);
           const noteText = input.note ? `\n📝 <i>"${input.note}"</i>` : "";
           await sendSafeTelegramAlert(
-            new Date(input.date),
-            `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${safeName}</b> zgłasza chęć lekcji.${noteText}`
+            warsawDate,
+            `🔔 <b>Lista Rezerwowa</b>\nUczeń <b>${safeName}</b> zgłasza chęć lekcji.${noteText}`,
           );
         } catch (error) {
           console.error("Background Error (Waitlist):", error);
@@ -529,7 +540,6 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
-  // --- GENERATOR SLOTÓW ---
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -549,7 +559,7 @@ export async function registerRoutes(
 
       const existingSlots = await storage.getSlots(start, addDays(end, 1));
       const existingTimestamps = new Set(
-        existingSlots.map((s) => s.startTime.getTime())
+        existingSlots.map((s) => s.startTime.getTime()),
       );
       const [startHour, startMinute] = startTime.split(":").map(Number);
       const [endHour, endMinute] = endTime.split(":").map(Number);
@@ -567,17 +577,17 @@ export async function registerRoutes(
         const dayOfWeek = getDay(currentDay);
         if (dayOfWeek !== 0) {
           const fixedLessons = weeklySchedule.filter(
-            (l) => l.dayOfWeek === dayOfWeek
+            (l) => l.dayOfWeek === dayOfWeek,
           );
           let daySlotStart = setMinutes(
             setHours(currentDay, startHour),
-            startMinute
+            startMinute,
           );
-          daySlotStart = setMilliseconds(setSeconds(daySlotStart, 0), 0); // CLEAN
+          daySlotStart = setMilliseconds(setSeconds(daySlotStart, 0), 0);
 
           const daySlotEnd = setMinutes(
             setHours(currentDay, endHour),
-            endMinute
+            endMinute,
           );
 
           while (daySlotStart < daySlotEnd) {
@@ -631,7 +641,6 @@ export async function registerRoutes(
     }
   });
 
-  // --- GENERATOR Z SZABLONU (TEMPLATE) ---
   app.post("/api/slots/generate-from-template", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -644,7 +653,7 @@ export async function registerRoutes(
       const end = parseISO(endDate);
       const weeklySchedule = await storage.getWeeklySchedule();
       console.log(
-        `[GENERATOR] Pobrano ${weeklySchedule.length} elementów szablonu.`
+        `[GENERATOR] Pobrano ${weeklySchedule.length} elementów szablonu.`,
       );
 
       const startYear = getYear(start);
@@ -667,7 +676,7 @@ export async function registerRoutes(
         }
         const dayOfWeek = getDay(currentDay);
         const dayTemplates = weeklySchedule.filter(
-          (t) => t.dayOfWeek === dayOfWeek
+          (t) => t.dayOfWeek === dayOfWeek,
         );
         const processedTimes = new Set<string>();
 
@@ -675,7 +684,7 @@ export async function registerRoutes(
           const [hours, minutes] = item.startTime.split(":").map(Number);
           let slotStart = new Date(currentDay);
           slotStart.setHours(hours, minutes, 0, 0);
-          slotStart = setMilliseconds(slotStart, 0); // CLEAN
+          slotStart = setMilliseconds(slotStart, 0);
 
           const { h: plH, m: plM } = getWarsawHourMinute(slotStart);
           const actualMinutes = plH * 60 + plM;
@@ -692,7 +701,7 @@ export async function registerRoutes(
           const slotEnd = addMinutes(slotStart, item.durationMinutes);
 
           const existingSlot = existingSlots.find(
-            (s) => Math.abs(differenceInMinutes(s.startTime, slotStart)) < 2
+            (s) => Math.abs(differenceInMinutes(s.startTime, slotStart)) < 2,
           );
 
           const isBooked = !!item.studentId;
@@ -704,7 +713,7 @@ export async function registerRoutes(
             isBooked: isBooked,
             studentId: item.studentId,
             topic: topic,
-            endTime: slotEnd, // Czysty czas końca lekcji (bez dojazdu)
+            endTime: slotEnd,
             price: item.price,
             locationType: item.locationType,
             travelMinutes: item.travelMinutes,
@@ -726,7 +735,7 @@ export async function registerRoutes(
         currentDay = addDays(currentDay, 1);
       }
       console.log(
-        `[GENERATOR] Zakończono. Nowe: ${count}, Zaktualizowane: ${updatedCount}`
+        `[GENERATOR] Zakończono. Nowe: ${count}, Zaktualizowane: ${updatedCount}`,
       );
       res.status(201).json({
         count,
@@ -738,14 +747,13 @@ export async function registerRoutes(
     }
   });
 
-  // --- BOOKING (REZERWACJA) ---
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
     try {
       const id = parseInt(req.params.id);
       const { topic, durationMinutes, locationType } = bookSlotSchema.parse(
-        req.body
+        req.body,
       );
       const slot = await storage.getSlot(id);
       if (!slot) return res.status(404).send("Termin nie znaleziony");
@@ -753,19 +761,16 @@ export async function registerRoutes(
 
       const travelBuffer = locationType === "commute" ? 30 : 0;
 
-      // Clean timestamps
       const baseStart = setMilliseconds(
         setSeconds(new Date(slot.startTime), 0),
-        0
+        0,
       );
 
-      // LOGIKA KOLIZJI (DOJAZD PRZED)
       const busyStart = addMinutes(baseStart, -travelBuffer);
       const busyEnd = addMinutes(baseStart, durationMinutes);
 
       const lessonEnd = addMinutes(baseStart, durationMinutes);
 
-      // Search range
       const searchStart = addMinutes(busyStart, -180);
       const searchEnd = addMinutes(busyEnd, 180);
 
@@ -776,25 +781,20 @@ export async function registerRoutes(
           and(
             gte(slots.startTime, searchStart),
             lte(slots.endTime, searchEnd),
-            ne(slots.id, id)
-          )
+            ne(slots.id, id),
+          ),
         );
 
       const isBlockage = potentialCollisions.some((s) => {
         if (!s.isBooked) return false;
 
         const sStart = setMilliseconds(setSeconds(new Date(s.startTime), 0), 0);
-        // We trust s.endTime is the Pure Lesson End.
-        // If s.locationType is commute, the dojazd is BEFORE sStart.
         const sEnd = setMilliseconds(setSeconds(new Date(s.endTime), 0), 0);
 
         const sExtra = s.locationType === "commute" ? s.travelMinutes || 0 : 0;
         const sBusyStart = addMinutes(sStart, -sExtra);
         const sBusyEnd = sEnd;
 
-        // Strict non-overlapping check:
-        // Collision if intervals overlap.
-        // (A_start < B_end) AND (A_end > B_start)
         return (
           busyStart.getTime() < sBusyEnd.getTime() &&
           busyEnd.getTime() > sBusyStart.getTime()
@@ -817,13 +817,11 @@ export async function registerRoutes(
         travelMinutes: travelBuffer,
       });
 
-      // Cleanup overlaps
       for (const collision of potentialCollisions) {
         if (collision.isBooked) continue;
-        // Clean timestamps for collision check too
         const cStart = setMilliseconds(
           setSeconds(new Date(collision.startTime), 0),
-          0
+          0,
         );
 
         if (
@@ -838,11 +836,12 @@ export async function registerRoutes(
 
       (async () => {
         try {
+          const warsawDate = getWarsawDate(new Date(slot.startTime));
           if (user.email)
             await sendBookingConfirmation(
               user.email,
-              new Date(slot.startTime),
-              topic || "Matematyka"
+              warsawDate,
+              topic || "Matematyka",
             );
           const allUsers = await storage.getAllUsers();
           const admin = allUsers.find((u) => u.role === "admin");
@@ -850,14 +849,14 @@ export async function registerRoutes(
             await sendNewBookingNotificationToAdmin(
               admin.email,
               user.name,
-              new Date(slot.startTime),
-              topic || "Matematyka"
+              warsawDate,
+              topic || "Matematyka",
             );
           }
           const safeName = anonymizeName(user.name, user.id);
           await sendSafeTelegramAlert(
-            new Date(slot.startTime),
-            `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`
+            warsawDate,
+            `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`,
           );
         } catch (bgError) {
           console.error("Background Error (Booking):", bgError);
@@ -885,7 +884,7 @@ export async function registerRoutes(
         const bookedAt = slot.bookedAt ? new Date(slot.bookedAt) : new Date(0);
         const hoursUntilLesson = differenceInHours(
           new Date(slot.startTime),
-          now
+          now,
         );
         const minutesSinceBooking = differenceInMinutes(now, bookedAt);
         if (hoursUntilLesson < 24 && minutesSinceBooking > 30) {
@@ -909,39 +908,36 @@ export async function registerRoutes(
 
       (async () => {
         try {
+          const warsawDate = getWarsawDate(new Date(slot.startTime));
           const allUsers = await storage.getAllUsers();
           const studentEmails = allUsers
             .filter(
               (u) =>
                 u.role === "student" &&
                 u.id !== user.id &&
-                u.email?.includes("@")
+                u.email?.includes("@"),
             )
             .map((u) => u.email as string);
-          await broadcastFreeSlot(
-            studentEmails,
-            new Date(slot.startTime),
-            undefined
-          );
+          await broadcastFreeSlot(studentEmails, warsawDate, undefined);
 
           const safeName = anonymizeName(user.name, user.id);
           await sendSafeTelegramAlert(
-            new Date(slot.startTime),
-            `❌ <b>Anulowano rezerwację!</b>\nUczeń: <b>${safeName}</b>\nTermin zwolniony.`
+            warsawDate,
+            `❌ <b>Anulowano rezerwację!</b>\nUczeń: <b>${safeName}</b>\nTermin zwolniony.`,
           );
 
           if (user.email)
             await sendCancellationConfirmation(
               user.email,
-              new Date(slot.startTime),
-              user.name
+              warsawDate,
+              user.name,
             );
           const admin = allUsers.find((u) => u.role === "admin");
           if (admin?.email)
             await sendCancellationNotificationToAdmin(
               admin.email,
               user.name,
-              new Date(slot.startTime)
+              warsawDate,
             );
         } catch (bgError) {
           console.error("Background Error (Cancel):", bgError);
