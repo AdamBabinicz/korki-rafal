@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, MessageSquare } from "lucide-react";
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -24,7 +24,6 @@ export default function LoginPage() {
       { username, password },
       {
         onError: (err) => {
-          // Używamy tłumaczeń lub wiadomości z serwera, jeśli brak klucza
           const message =
             err.message === "Invalid credentials"
               ? "Błędny login lub hasło"
@@ -32,11 +31,11 @@ export default function LoginPage() {
 
           toast({
             variant: "destructive",
-            title: t("toasts.error") || "Błąd", // Fallback jeśli tłumaczenie nie zadziała
+            title: t("toasts.error") || "Błąd",
             description: message,
           });
         },
-      }
+      },
     );
   };
 
@@ -107,6 +106,20 @@ export default function LoginPage() {
               {t("nav.login")}
             </Button>
           </form>
+
+          <div className="mt-6 pt-6 border-t border-secondary/20 text-center text-sm">
+            <p className="text-muted-foreground mb-3">Zapomniałeś hasła?</p>
+            <a
+              href="https://m.me/100094791384674"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700 font-semibold hover:underline cursor-pointer"
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Napisz na Messengerze
+            </a>
+          </div>
+
           <div className="mt-6 text-center text-sm text-muted-foreground">
             {t("auth.no_account")}{" "}
             <Link
