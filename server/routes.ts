@@ -54,15 +54,8 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-/**
- * FUNKCJA NAPRAWCZA: Konwersja czasu serwera na czas lokalny (Warszawa)
- * aby wyeliminować błąd przesunięcia 1h w powiadomieniach.
- */
 function getWarsawDate(date: Date): Date {
-  const dateString = date.toLocaleString("en-US", {
-    timeZone: "Europe/Warsaw",
-  });
-  return new Date(dateString);
+  return date;
 }
 
 function getWarsawHourMinute(date: Date) {

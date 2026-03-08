@@ -34,9 +34,7 @@ export async function sendSafeTelegramAlert(
   const day = parts.find((p) => p.type === "day")?.value;
   const month = parts.find((p) => p.type === "month")?.value;
   const hour = parts.find((p) => p.type === "hour")?.value;
-  const minute = parts.find((p) => p.value === ":")
-    ? ""
-    : parts.find((p) => p.type === "minute")?.value;
+  const minute = parts.find((p) => p.type === "minute")?.value;
 
   const formattedDate = `${weekday}, ${day} ${month} o godz. ${hour}:${minute}`;
 
