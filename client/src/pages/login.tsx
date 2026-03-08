@@ -26,12 +26,12 @@ export default function LoginPage() {
         onError: (err) => {
           const message =
             err.message === "Invalid credentials"
-              ? "Błędny login lub hasło"
-              : "Wystąpił błąd logowania";
+              ? t("auth.invalid_credentials")
+              : t("auth.login_error");
 
           toast({
             variant: "destructive",
-            title: t("toasts.error") || "Błąd",
+            title: t("toasts.error"),
             description: message,
           });
         },
@@ -90,7 +90,9 @@ export default function LoginPage() {
                     <Eye className="h-4 w-4" />
                   )}
                   <span className="sr-only">
-                    {showPassword ? "Ukryj hasło" : "Pokaż hasło"}
+                    {showPassword
+                      ? "Toggle password visibility"
+                      : "Toggle password visibility"}
                   </span>
                 </Button>
               </div>
@@ -108,7 +110,9 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 pt-6 border-t border-secondary/20 text-center text-sm">
-            <p className="text-muted-foreground mb-3">Zapomniałeś hasła?</p>
+            <p className="text-muted-foreground mb-3">
+              {t("auth.forgot_password")}
+            </p>
             <a
               href="https://m.me/100094791384674"
               target="_blank"
@@ -116,7 +120,7 @@ export default function LoginPage() {
               className="inline-flex items-center justify-center text-blue-600 hover:text-blue-700 font-semibold hover:underline cursor-pointer"
             >
               <MessageSquare className="mr-2 h-4 w-4" />
-              Napisz na Messengerze
+              {t("auth.send_message")}
             </a>
           </div>
 

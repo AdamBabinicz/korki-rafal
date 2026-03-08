@@ -94,10 +94,13 @@ const sendTelegramNotification = async (message: string) => {
 export default function CalendarTab() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
+
+  // Sprawdzamy, czy aktualny język to polski
+  const isPl = i18n.language.startsWith("pl");
+  const dateLocale = isPl ? pl : enUS;
 
   const [currentWeekStart, setCurrentWeekStart] = useState(
-    startOfWeek(new Date(), { weekStartsOn: 1 })
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
   );
   const weekStart = currentWeekStart;
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -142,10 +145,9 @@ export default function CalendarTab() {
 
   useEffect(() => {
     if (editingSlot) {
-      // Obliczanie czasu trwania lekcji (czystego)
       const duration = differenceInMinutes(
         new Date(editingSlot.endTime),
-        new Date(editingSlot.startTime)
+        new Date(editingSlot.startTime),
       );
 
       setEditFormTime(format(new Date(editingSlot.startTime), "HH:mm"));
@@ -156,22 +158,17 @@ export default function CalendarTab() {
     }
   }, [editingSlot]);
 
-  // --- ZMODYFIKOWANA LOGIKA KOLIZJI (DOJAZD PRZED) ---
-  // Używamy setSeconds(..., 0) i setMilliseconds(..., 0) aby uniknąć błędów
-  // wynikających z ułamków sekund przy sprawdzaniu "stykających się" lekcji.
   const checkCollision = (
     start: Date,
     duration: number,
     locType: string,
     travel: number,
-    excludeSlotId?: number
+    excludeSlotId?: number,
   ) => {
     if (!slots) return false;
 
-    // Clean Start Timestamp
     const cleanStart = setMilliseconds(setSeconds(new Date(start), 0), 0);
 
-    // My Busy Range:
     const extraTimeStart = locType === "commute" ? travel : 0;
     const busyStart = addMinutes(cleanStart, -extraTimeStart);
     const busyEnd = addMinutes(cleanStart, duration);
@@ -182,16 +179,12 @@ export default function CalendarTab() {
       const sStart = setMilliseconds(setSeconds(new Date(s.startTime), 0), 0);
       const sEnd = setMilliseconds(setSeconds(new Date(s.endTime), 0), 0);
 
-      // Calculate OTHER slot's busy range based on "Travel Before" logic
       const sExtraTimeStart =
         s.locationType === "commute" ? s.travelMinutes || 0 : 0;
 
       const sBusyStart = addMinutes(sStart, -sExtraTimeStart);
-      const sBusyEnd = sEnd; // We trust sEnd is pure lesson end
+      const sBusyEnd = sEnd;
 
-      // Strict Intersection:
-      // (MyStart < OtherEnd) AND (MyEnd > OtherStart)
-      // Using .getTime() to avoid object reference issues
       return (
         busyStart.getTime() < sBusyEnd.getTime() &&
         busyEnd.getTime() > sBusyStart.getTime()
@@ -205,7 +198,7 @@ export default function CalendarTab() {
       newSlotData.startTime,
       newSlotData.duration || 60,
       newSlotData.locationType || "onsite",
-      newSlotData.travelMinutes || 0
+      newSlotData.travelMinutes || 0,
     );
   })();
 
@@ -222,7 +215,7 @@ export default function CalendarTab() {
       editFormDuration,
       editFormLocation,
       editFormTravel,
-      editingSlot.id
+      editingSlot.id,
     );
   })();
 
@@ -241,12 +234,12 @@ export default function CalendarTab() {
       const formattedDate = format(
         new Date(variables.startTime),
         "EEEE, d MMMM yyyy, HH:mm",
-        { locale: dateLocale }
+        { locale: dateLocale },
       );
       sendTelegramNotification(
         `🔔 <b>${t("notifications.title")}</b>\n${t(
-          "notifications.new_slot"
-        )}\n\n📅 ${formattedDate}`
+          "notifications.new_slot",
+        )}\n\n📅 ${formattedDate}`,
       );
     },
   });
@@ -294,8 +287,8 @@ export default function CalendarTab() {
       });
       sendTelegramNotification(
         `🗑️ <b>${t("notifications.title")}</b>\n${t(
-          "notifications.slot_removed"
-        )}\n\n📅 ${formattedDate}`
+          "notifications.slot_removed",
+        )}\n\n📅 ${formattedDate}`,
       );
     },
   });
@@ -344,7 +337,6 @@ export default function CalendarTab() {
         : 0;
     const lessonDuration = newSlotData.duration || 60;
 
-    // endTime = startTime + duration (BEZ travel)
     const end = addMinutes(newSlotData.startTime, lessonDuration);
 
     const payload: any = {
@@ -399,7 +391,7 @@ export default function CalendarTab() {
             slots?.filter((s) => isSameDay(new Date(s.startTime), day)) || [];
           daySlots.sort(
             (a, b) =>
-              new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+              new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
           );
           const isHoliday = isPublicHoliday(day);
           const isSun = isSunday(day);
@@ -440,7 +432,7 @@ export default function CalendarTab() {
                     )}
                     {daySlots.map((slot) => {
                       const student = users?.find(
-                        (u) => u.id === slot.studentId
+                        (u) => u.id === slot.studentId,
                       );
                       const isCommute = slot.locationType === "commute";
                       const startTime = new Date(slot.startTime);
@@ -465,17 +457,18 @@ export default function CalendarTab() {
                               {isCommute && commuteStart && (
                                 <span
                                   className="text-xs text-orange-600 flex items-center gap-1 mt-0.5"
-                                  title="Godzina wyjazdu"
+                                  title={
+                                    isPl ? "Godzina wyjazdu" : "Departure time"
+                                  }
                                 >
                                   <Car className="h-3 w-3" />
-                                  Wyjazd: {format(commuteStart, "HH:mm")}
+                                  {isPl ? "Wyjazd:" : "Departure:"}{" "}
+                                  {format(commuteStart, "HH:mm")}
                                 </span>
                               )}
                             </div>
 
-                            {/* --- PRZYCISKI AKCJI --- */}
                             <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 bg-white/50 dark:bg-black/50 rounded-md p-1 shadow-sm backdrop-blur-sm">
-                              {/* EDYCJA (Dostępna zawsze) */}
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -532,7 +525,8 @@ export default function CalendarTab() {
                                 </span>
                                 {isCommute && (
                                   <span className="text-orange-600 font-medium">
-                                    +{slot.travelMinutes} min dojazdu
+                                    +{slot.travelMinutes} min{" "}
+                                    {t("admin.commute_suffix")}
                                   </span>
                                 )}
                               </div>
@@ -559,14 +553,14 @@ export default function CalendarTab() {
         })}
       </div>
 
-      {/* --- ADD SLOT MODAL --- */}
       <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{t("admin.new_slot_title")}</DialogTitle>
             <DialogDescription>
-              Wprowadź godzinę rozpoczęcia <b>lekcji</b>. Jeśli wybierzesz
-              dojazd, system zarezerwuje czas <b>przed</b> lekcją.
+              {isPl
+                ? "Wprowadź godzinę rozpoczęcia lekcji. Czas dojazdu jest rezerwowany automatycznie."
+                : "Enter the lesson start time. Commute time is reserved automatically."}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -681,14 +675,16 @@ export default function CalendarTab() {
                 />
                 {newSlotData.startTime && newSlotData.travelMinutes && (
                   <div className="text-xs text-orange-700 mt-1">
-                    Będziesz musiał wyjechać o:{" "}
+                    {isPl
+                      ? "Będziesz musiał wyjechać o:"
+                      : "You will need to leave at:"}{" "}
                     <b>
                       {format(
                         addMinutes(
                           newSlotData.startTime,
-                          -newSlotData.travelMinutes
+                          -newSlotData.travelMinutes,
                         ),
-                        "HH:mm"
+                        "HH:mm",
                       )}
                     </b>
                   </div>
@@ -696,7 +692,9 @@ export default function CalendarTab() {
               </div>
             )}
             <div className="grid gap-2">
-              <Label>Uczeń (opcjonalnie)</Label>
+              <Label>
+                {isPl ? "Uczeń (opcjonalnie)" : "Student (optional)"}
+              </Label>
               <Select
                 onValueChange={(val) =>
                   setNewSlotData({
@@ -709,7 +707,7 @@ export default function CalendarTab() {
                   <SelectValue placeholder={t("admin.select_student")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">-- Brak --</SelectItem>
+                  <SelectItem value="none">{t("booking.none")}</SelectItem>
                   {users
                     ?.filter((u) => u.role === "student")
                     .map((u) => (
@@ -737,7 +735,6 @@ export default function CalendarTab() {
         </DialogContent>
       </Dialog>
 
-      {/* --- EDIT SLOT MODAL --- */}
       <Dialog
         open={!!editingSlot}
         onOpenChange={(open) => !open && setEditingSlot(null)}
@@ -750,7 +747,7 @@ export default function CalendarTab() {
                 `${format(
                   new Date(editingSlot.startTime),
                   "EEEE, d MMMM yyyy",
-                  { locale: dateLocale }
+                  { locale: dateLocale },
                 )}`}
             </DialogDescription>
           </DialogHeader>
@@ -773,7 +770,6 @@ export default function CalendarTab() {
                   newStartTime = new Date(editingSlot.startTime);
                   newStartTime.setHours(h, m, 0, 0);
 
-                  // endTime = startTime + duration (BEZ travel)
                   newEndTime = addMinutes(newStartTime, editFormDuration);
                 }
 
@@ -783,7 +779,9 @@ export default function CalendarTab() {
                     studentId,
                     isBooked: !!studentId,
                     price: editFormPrice,
-                    topic: !!studentId ? "Korepetycje" : undefined,
+                    topic: !!studentId
+                      ? t("dashboard.default_topic")
+                      : undefined,
                     startTime: newStartTime,
                     endTime: newEndTime,
                     locationType: editFormLocation,
@@ -853,7 +851,9 @@ export default function CalendarTab() {
                   />
                   {editFormTime && (
                     <div className="text-xs text-orange-700 mt-1">
-                      Będziesz musiał wyjechać o:{" "}
+                      {isPl
+                        ? "Będziesz musiał wyjechać o:"
+                        : "You will need to leave at:"}{" "}
                       <b>
                         {(() => {
                           const [h, m] = editFormTime.split(":").map(Number);
@@ -861,7 +861,7 @@ export default function CalendarTab() {
                           date.setHours(h, m);
                           return format(
                             addMinutes(date, -editFormTravel),
-                            "HH:mm"
+                            "HH:mm",
                           );
                         })()}
                       </b>
@@ -871,7 +871,6 @@ export default function CalendarTab() {
               )}
               <div className="grid gap-2">
                 <Label>{t("admin.assign_student")}</Label>
-                {/* --- SEKCJA WYBORU UCZNIA (Domyślnie wybrany obecny) --- */}
                 <Select
                   name="studentId"
                   defaultValue={editingSlot.studentId?.toString() || "none"}

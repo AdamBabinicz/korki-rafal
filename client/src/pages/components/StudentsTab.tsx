@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { format } from "date-fns";
-import { pl } from "date-fns/locale";
+import { pl, enUS } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,8 +53,9 @@ const sendTelegramNotification = async (message: string) => {
 };
 
 export default function StudentsTab() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
 
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
   const [editingStudentId, setEditingStudentId] = useState<number | null>(null);
@@ -76,6 +77,20 @@ export default function StudentsTab() {
     enabled: !!paymentDetailsStudentId,
   });
 
+  const getNoteTranslation = (note: string | null | undefined) => {
+    if (!note) return "-";
+
+    // Używamy .includes, aby dopasować się do wariantów
+    if (note.includes("Zaimportowano automatycznie"))
+      return t("admin.note_auto");
+    if (note.includes("Fikcyjny uczeń dodany w celu testowania aplikacji"))
+      return t("admin.note_fictional_1");
+    if (note.includes("Fikcyjny uczeń do testowania funkcjonalności aplikacji"))
+      return t("admin.note_fictional_2");
+
+    return note; // Zwróci notatkę taką, jaka jest w bazie, jeśli nie pasuje do żadnego schematu
+  };
+
   const createUserMutation = useMutation({
     mutationFn: async (data: InsertUser) => {
       const res = await apiRequest("POST", "/api/users", data);
@@ -87,8 +102,8 @@ export default function StudentsTab() {
       setIsAddStudentOpen(false);
       sendTelegramNotification(
         `🔔 <b>${t("notifications.title")}</b>\n${t(
-          "notifications.new_student"
-        )}`
+          "notifications.new_student",
+        )}`,
       );
     },
     onError: (err: Error) => {
@@ -134,8 +149,8 @@ export default function StudentsTab() {
       toast({ title: t("admin.student_deleted") });
       sendTelegramNotification(
         `🔔 <b>${t("notifications.title")}</b>\n${t(
-          "notifications.student_deleted"
-        )}`
+          "notifications.student_deleted",
+        )}`,
       );
     },
   });
@@ -151,8 +166,8 @@ export default function StudentsTab() {
         queryKey: ["/api/users", paymentDetailsStudentId, "unpaid"],
       });
       toast({
-        title: "Rozliczono ucznia",
-        description: "Wszystkie zaległości uregulowane.",
+        title: t("admin.settle_debt"),
+        description: t("admin.debt_all_cleared"),
       });
       setPaymentDetailsStudentId(null);
     },
@@ -171,8 +186,8 @@ export default function StudentsTab() {
         queryKey: ["/api/users", paymentDetailsStudentId, "unpaid"],
       });
       toast({
-        title: "Opłacono lekcję",
-        description: "Status zmieniony na opłacony.",
+        title: t("admin.paid_lesson"),
+        description: t("admin.status_paid"),
       });
     },
   });
@@ -243,7 +258,7 @@ export default function StudentsTab() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label>E-mail</Label>
+                <Label>{t("admin.table.email")}</Label>
                 <Input
                   value={newStudent.email || ""}
                   onChange={(e) =>
@@ -275,7 +290,9 @@ export default function StudentsTab() {
                 <th className="p-3 font-medium">{t("admin.table.name")}</th>
                 <th className="p-3 font-medium">{t("admin.table.email")}</th>
                 <th className="p-3 font-medium">{t("admin.table.phone")}</th>
-                <th className="p-3 font-medium text-center">Należności</th>
+                <th className="p-3 font-medium text-center">
+                  {t("admin.table.balance")}
+                </th>
                 <th className="p-3 font-medium">
                   {t("admin.table.admin_notes")}
                 </th>
@@ -313,19 +330,21 @@ export default function StudentsTab() {
                             {student.balance} PLN
                           </span>
                           <span className="text-xs font-normal underline decoration-dotted">
-                            pokaż {student.unpaidCount} lekcji
+                            {t("admin.show_lessons", {
+                              count: student.unpaidCount,
+                            })}
                           </span>
                         </Button>
                       ) : (
                         <span className="text-green-600 flex items-center justify-center gap-1 text-xs font-medium">
-                          <Check className="h-3 w-3" /> Czysto
+                          <Check className="h-3 w-3" /> {t("admin.debt_clear")}
                         </span>
                       )}
                     </td>
 
                     <td className="p-3">
                       <div className="max-w-[200px] truncate opacity-80 text-xs">
-                        {student.adminNotes || "-"}
+                        {getNoteTranslation(student.adminNotes)}
                       </div>
                     </td>
                     <td className="p-3 text-right">
@@ -353,7 +372,7 @@ export default function StudentsTab() {
                                 {editingStudent?.name}
                               </DialogTitle>
                               <DialogDescription>
-                                Edytuj szczegóły konta ucznia.
+                                {t("admin.edit_student_desc")}
                               </DialogDescription>
                             </DialogHeader>
                             <form
@@ -361,7 +380,7 @@ export default function StudentsTab() {
                                 e.preventDefault();
                                 const formData = new FormData(e.currentTarget);
                                 const rawData: any = Object.fromEntries(
-                                  formData.entries()
+                                  formData.entries(),
                                 );
                                 const cleanData: any = {};
                                 if (rawData.name)
@@ -371,13 +390,13 @@ export default function StudentsTab() {
                                     cleanData[field] = rawData[field]
                                       ? rawData[field].trim()
                                       : "";
-                                  }
+                                  },
                                 );
                                 if (rawData.email?.trim())
                                   cleanData.email = rawData.email.trim();
                                 if (rawData.defaultPrice)
                                   cleanData.defaultPrice = parseInt(
-                                    rawData.defaultPrice
+                                    rawData.defaultPrice,
                                   );
                                 if (rawData.password?.trim())
                                   cleanData.password = rawData.password.trim();
@@ -509,17 +528,15 @@ export default function StudentsTab() {
         >
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Zaległości: {selectedStudent?.name}</DialogTitle>
-              <DialogDescription>
-                Poniżej lista nieopłaconych lekcji. Możesz opłacić je pojedynczo
-                lub wszystkie naraz.
-              </DialogDescription>
+              <DialogTitle>
+                {t("admin.unpaid_lessons")}: {selectedStudent?.name}
+              </DialogTitle>
             </DialogHeader>
 
             <div className="max-h-[300px] overflow-y-auto border rounded-md my-4">
               {unpaidSlots?.length === 0 && (
                 <div className="p-4 text-center text-muted-foreground">
-                  Brak zaległości!
+                  {t("admin.no_debt")}
                 </div>
               )}
               {unpaidSlots?.map((slot) => {
@@ -532,18 +549,17 @@ export default function StudentsTab() {
                     <div>
                       <div className="font-medium">
                         {format(new Date(slot.startTime), "d MMMM (EEEE)", {
-                          locale: pl,
+                          locale: dateLocale,
                         })}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {format(new Date(slot.startTime), "HH:mm", {
-                          locale: pl,
+                          locale: dateLocale,
                         })}{" "}
                         -{" "}
                         {format(new Date(slot.endTime), "HH:mm", {
-                          locale: pl,
+                          locale: dateLocale,
                         })}
-                        {slot.locationType === "commute" && " (Dojazd)"}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -555,7 +571,7 @@ export default function StudentsTab() {
                         disabled={paySingleSlotMutation.isPending}
                       >
                         <Wallet className="w-3 h-3 mr-1" />
-                        Zapłać
+                        {t("admin.pay_now")}
                       </Button>
                     </div>
                   </div>
@@ -565,7 +581,7 @@ export default function StudentsTab() {
 
             <DialogFooter className="flex sm:justify-between gap-2">
               <div className="text-sm text-muted-foreground self-center">
-                Suma:{" "}
+                {t("admin.total_sum")}{" "}
                 <span className="font-bold text-foreground">
                   {selectedStudent?.balance} PLN
                 </span>
@@ -577,7 +593,9 @@ export default function StudentsTab() {
                   settleAllDebtMutation.mutate(paymentDetailsStudentId)
                 }
               >
-                Rozlicz Wszystko ({selectedStudent?.balance} zł)
+                {t("admin.settle_all", {
+                  balance: selectedStudent?.balance,
+                })}
               </Button>
             </DialogFooter>
           </DialogContent>

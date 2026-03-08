@@ -51,24 +51,21 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import type { User, WeeklySchedule } from "@shared/schema";
 
-// Helper: zamiana HH:mm na minuty
 const timeToMinutes = (timeStr: string) => {
   if (!timeStr) return 0;
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
 };
 
-// Helper: obliczanie godziny wyjazdu
 const getDepartureTimeStr = (startTimeStr: string, travelMinutes: number) => {
   if (!startTimeStr) return "";
   let minutes = timeToMinutes(startTimeStr) - travelMinutes;
-  if (minutes < 0) minutes += 1440; // obsługa północy (rzadki case)
+  if (minutes < 0) minutes += 1440;
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 };
 
-// Helper: wysyłanie powiadomień
 const sendTelegramNotification = async (message: string) => {
   const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
   const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
@@ -93,7 +90,6 @@ export default function TemplateTab() {
   const { toast } = useToast();
   const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
 
-  // --- STANY ---
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [genRange, setGenRange] = useState({
     start: new Date(),
@@ -113,44 +109,37 @@ export default function TemplateTab() {
   const [editingTemplateItem, setEditingTemplateItem] =
     useState<WeeklySchedule | null>(null);
 
-  // Stany formularza edycji
   const [tplFormDuration, setTplFormDuration] = useState(60);
   const [tplFormPrice, setTplFormPrice] = useState(80);
   const [tplFormLocation, setTplFormLocation] = useState("onsite");
   const [tplFormTravel, setTplFormTravel] = useState(0);
 
-  // --- DATA ---
   const { data: users } = useQuery<User[]>({ queryKey: ["/api/users"] });
   const { data: weeklySchedule } = useQuery<WeeklySchedule[]>({
     queryKey: ["/api/weekly-schedule"],
   });
 
-  // Aktualizacja formularza edycji po otwarciu modala
   useEffect(() => {
     if (editingTemplateItem) {
       setTplFormDuration(editingTemplateItem.durationMinutes);
       setTplFormPrice(
-        Math.ceil((editingTemplateItem.durationMinutes / 60) * 80)
+        Math.ceil((editingTemplateItem.durationMinutes / 60) * 80),
       );
       setTplFormLocation(editingTemplateItem.locationType || "onsite");
       setTplFormTravel(editingTemplateItem.travelMinutes || 0);
     }
   }, [editingTemplateItem]);
 
-  // --- KOLIZJE (Dojazd PRZED lekcją) ---
   const checkTemplateCollision = (
     dayOfWeek: number,
     startTimeStr: string,
     duration: number,
     locType: string,
     travel: number,
-    excludeId?: number
+    excludeId?: number,
   ) => {
     if (!weeklySchedule || !startTimeStr) return false;
 
-    // Moja zajętość:
-    // Start zajętości = Godzina Lekcji - Dojazd
-    // Koniec zajętości = Godzina Lekcji + Trwanie
     const proposedLessonStart = timeToMinutes(startTimeStr);
     const extraTimeStart = locType === "commute" ? travel : 0;
 
@@ -161,7 +150,6 @@ export default function TemplateTab() {
       if (item.dayOfWeek !== dayOfWeek) return false;
       if (excludeId && item.id === excludeId) return false;
 
-      // Zajętość elementu z listy:
       const itemLessonStart = timeToMinutes(item.startTime);
       const itemExtraStart =
         item.locationType === "commute" ? item.travelMinutes || 0 : 0;
@@ -169,8 +157,6 @@ export default function TemplateTab() {
       const itemBusyStart = itemLessonStart - itemExtraStart;
       const itemBusyEnd = itemLessonStart + item.durationMinutes;
 
-      // Sprawdzenie nachodzenia przedziałów
-      // Strict comparison (< instead of <=)
       return myBusyStart < itemBusyEnd && myBusyEnd > itemBusyStart;
     });
   };
@@ -181,11 +167,10 @@ export default function TemplateTab() {
       templateForm.startTime,
       parseInt(templateForm.durationMinutes),
       templateForm.locationType || "onsite",
-      parseInt(templateForm.travelMinutes || "0")
+      parseInt(templateForm.travelMinutes || "0"),
     );
   }, [templateForm, weeklySchedule]);
 
-  // --- MUTACJE ---
   const createWeeklyItemMutation = useMutation({
     mutationFn: async (item: any) => {
       const res = await apiRequest("POST", "/api/weekly-schedule", item);
@@ -194,7 +179,6 @@ export default function TemplateTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/weekly-schedule"] });
       toast({ title: t("admin.template_added") });
-      // Reset godziny po dodaniu
       setTemplateForm((prev) => ({ ...prev, startTime: "" }));
     },
   });
@@ -233,7 +217,7 @@ export default function TemplateTab() {
       const res = await apiRequest(
         "POST",
         "/api/slots/generate-from-template",
-        data
+        data,
       );
       return res.json();
     },
@@ -246,13 +230,12 @@ export default function TemplateTab() {
       setIsGenerateOpen(false);
       sendTelegramNotification(
         `🔔 <b>${t("notifications.title")}</b>\n${t(
-          "notifications.schedule_generated"
-        )}`
+          "notifications.schedule_generated",
+        )}`,
       );
     },
   });
 
-  // --- RENDER ---
   return (
     <Card className="animate-in fade-in duration-500">
       <CardHeader className="flex flex-row items-center justify-between">
@@ -261,7 +244,6 @@ export default function TemplateTab() {
           <CardDescription>{t("admin.template_desc")}</CardDescription>
         </div>
 
-        {/* Przycisk Generowania (umieszczony tutaj dla wygody) */}
         <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
           <DialogTrigger asChild>
             <Button variant="outline">
@@ -355,7 +337,6 @@ export default function TemplateTab() {
       </CardHeader>
 
       <CardContent>
-        {/* Formularz dodawania */}
         <div className="grid gap-4 mb-6 p-4 bg-muted/30 rounded-lg border">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
@@ -485,10 +466,10 @@ export default function TemplateTab() {
                 />
                 {templateForm.startTime && (
                   <div className="text-xs text-orange-700 mt-1 font-medium">
-                    Wyjazd:{" "}
+                    {t("admin.commute_departure")}:{" "}
                     {getDepartureTimeStr(
                       templateForm.startTime,
-                      parseInt(templateForm.travelMinutes || "0")
+                      parseInt(templateForm.travelMinutes || "0"),
                     )}
                   </div>
                 )}
@@ -533,7 +514,6 @@ export default function TemplateTab() {
           </div>
         </div>
 
-        {/* Lista szablonów */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
           {[1, 2, 3, 4, 5, 6].map((dayNum) => (
             <div key={dayNum} className="space-y-3">
@@ -564,10 +544,10 @@ export default function TemplateTab() {
                       {isCommute && (
                         <div className="text-xs text-orange-600 font-medium flex items-center gap-1 mb-1">
                           <Car className="h-3 w-3" />
-                          Wyjazd:{" "}
+                          {t("admin.commute_departure")}:{" "}
                           {getDepartureTimeStr(
                             item.startTime,
-                            item.travelMinutes || 0
+                            item.travelMinutes || 0,
                           )}
                         </div>
                       )}
@@ -623,7 +603,6 @@ export default function TemplateTab() {
           ))}
         </div>
 
-        {/* Modal edycji elementu szablonu */}
         <Dialog
           open={!!editingTemplateItem}
           onOpenChange={(open) => !open && setEditingTemplateItem(null)}
@@ -646,7 +625,7 @@ export default function TemplateTab() {
                       tplFormDuration,
                       tplFormLocation,
                       tplFormTravel,
-                      editingTemplateItem.id
+                      editingTemplateItem.id,
                     )
                   ) {
                     toast({
@@ -782,10 +761,10 @@ export default function TemplateTab() {
                     />
                     {editingTemplateItem.startTime && (
                       <div className="text-xs text-orange-700 mt-1 font-medium">
-                        Wyjazd:{" "}
+                        {t("admin.commute_departure")}:{" "}
                         {getDepartureTimeStr(
                           editingTemplateItem.startTime,
-                          tplFormTravel
+                          tplFormTravel,
                         )}
                       </div>
                     )}
@@ -822,7 +801,7 @@ export default function TemplateTab() {
                   tplFormDuration,
                   tplFormLocation,
                   tplFormTravel,
-                  editingTemplateItem.id
+                  editingTemplateItem.id,
                 ) && (
                   <div className="flex items-center gap-2 p-3 bg-destructive/10 text-destructive rounded-md">
                     <AlertTriangle className="h-5 w-5 shrink-0" />
@@ -841,7 +820,7 @@ export default function TemplateTab() {
                       tplFormDuration,
                       tplFormLocation,
                       tplFormTravel,
-                      editingTemplateItem.id
+                      editingTemplateItem.id,
                     )}
                   >
                     Zapisz zmiany
