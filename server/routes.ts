@@ -28,7 +28,11 @@ import {
   differenceInHours,
   differenceInMinutes,
   format,
+  getYear,
+  getDay,
   addMinutes,
+  isBefore,
+  isAfter,
   setSeconds,
   setMilliseconds,
 } from "date-fns";
@@ -47,9 +51,6 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
-/**
- * Zwraca obiekt Date w strefie czasowej Europe/Warsaw
- */
 function getWarsawDate(date: Date): Date {
   return date;
 }
@@ -65,18 +66,12 @@ function getWarsawHourMinute(date: Date) {
   return { h: h === 24 ? 0 : h, m };
 }
 
-/**
- * Precyzyjnie tworzy obiekt Date dla podanej daty YYYY-MM-DD i godziny HH:mm w czasie polskim (Europe/Warsaw)
- * Eliminuje błąd przesunięć o 1 dzień / 1 godzinę na serwerach UTC (np. Render).
- */
 function createWarsawDateTime(dateStr: string, timeStr: string): Date {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hours, minutes] = timeStr.split(":").map(Number);
 
-  // Punkt wyjścia w UTC
   const target = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
 
-  // Sprawdzamy czas w Warszawie dla tego punktu
   const warsawStr = target.toLocaleString("en-US", {
     timeZone: "Europe/Warsaw",
   });
@@ -103,8 +98,9 @@ export async function registerRoutes(
 ): Promise<Server> {
   setupAuth(app);
 
+  // --- AUTOMATYCZNA MIGRACJA BAZY DANYCH & AKTUALIZACJA CEN NA 100 PLN ---
   try {
-    console.log("[DB] Sprawdzanie struktury tabel...");
+    console.log("[DB] Sprawdzanie struktury tabel i aktualizacja cennika...");
     await db.execute(
       sql`ALTER TABLE slots ADD COLUMN IF NOT EXISTS booked_at TIMESTAMP;`,
     );
@@ -123,7 +119,19 @@ export async function registerRoutes(
     await db.execute(
       sql`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS note TEXT;`,
     );
-    console.log("[DB] Struktura tabel jest poprawna.");
+
+    // Automatyczna aktualizacja starych wpisów z 80 zł na 100 zł
+    await db.execute(
+      sql`UPDATE slots SET price = 100 WHERE price = 80 OR price IS NULL;`,
+    );
+    await db.execute(
+      sql`UPDATE weekly_schedule SET price = 100 WHERE price = 80 OR price = 0;`,
+    );
+    await db.execute(
+      sql`UPDATE users SET default_price = 100 WHERE default_price = 80 OR default_price IS NULL;`,
+    );
+
+    console.log("[DB] Struktura i ceny zaktualizowane do 100 PLN.");
   } catch (err) {
     console.error("[DB] Błąd auto-migracji:", err);
   }
@@ -356,6 +364,7 @@ export async function registerRoutes(
         ...input,
         startTime: cleanStart,
         endTime: cleanEnd,
+        price: input.price ?? 100,
       });
       res.status(201).json(slot);
     } catch (err) {
@@ -419,7 +428,10 @@ export async function registerRoutes(
     }
     try {
       const input = insertWeeklyScheduleSchema.parse(req.body);
-      const item = await storage.createWeeklyScheduleItem(input);
+      const item = await storage.createWeeklyScheduleItem({
+        ...input,
+        price: input.price ?? 100,
+      });
       res.status(201).json(item);
     } catch (err) {
       console.error("[POST Template Error]", err);
@@ -536,7 +548,7 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
-  // --- GENERATORY (Odblokowano niedziele i święta + Naprawiono przesunięcie dat) ---
+  // --- GENERATORY ---
 
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
@@ -560,15 +572,13 @@ export async function registerRoutes(
       const existingTimestamps = new Set(
         existingSlots.map((s) => s.startTime.getTime()),
       );
-      const [startHour, startMinute] = startTime.split(":").map(Number);
-      const [endHour, endMinute] = endTime.split(":").map(Number);
       const weeklyScheduleList = await storage.getWeeklySchedule();
 
       let count = 0;
 
       while (currentDay <= endDay) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
-        const dayOfWeek = currentDay.getDay(); // 0 = niedziela, 1 = poniedziałek itd.
+        const dayOfWeek = currentDay.getDay();
 
         const fixedLessons = weeklyScheduleList.filter(
           (l) => l.dayOfWeek === dayOfWeek,
@@ -632,7 +642,6 @@ export async function registerRoutes(
     try {
       const { startDate, endDate } = generateFromTemplateSchema.parse(req.body);
 
-      // Bezpieczna iteracja po dniach kalendarzowych w południe (12:00)
       const [sY, sM, sD] = startDate.split("-").map(Number);
       const [eY, eM, eD] = endDate.split("-").map(Number);
 
@@ -654,7 +663,7 @@ export async function registerRoutes(
 
       while (currentDay <= endDay) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
-        const dayOfWeek = currentDay.getDay(); // 0 = Niedziela, 1 = Poniedziałek, ... 6 = Sobota
+        const dayOfWeek = currentDay.getDay();
 
         const dayTemplates = weeklyScheduleList.filter(
           (t) => t.dayOfWeek === dayOfWeek,
