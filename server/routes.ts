@@ -66,19 +66,53 @@ function getWarsawHourMinute(date: Date) {
   return { h: h === 24 ? 0 : h, m };
 }
 
+/**
+ * PANCERNA FUNKCJA STREFY CZASOWEJ:
+ * Tworzy prawidłowy obiekt Date w czasie polskim (Europe/Warsaw)
+ * bez parsowania stringów, w 100% odporna na środowisko Node.js/Linux.
+ */
 function createWarsawDateTime(dateStr: string, timeStr: string): Date {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hours, minutes] = timeStr.split(":").map(Number);
 
-  const target = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
+  // 1. Punkt odniesienia w UTC
+  const utcDate = new Date(
+    Date.UTC(year, month - 1, day, hours, minutes, 0, 0),
+  );
 
-  const warsawStr = target.toLocaleString("en-US", {
+  // 2. Bezpieczne odczytanie przesunięcia w Warszawie przez Intl formatToParts
+  const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "Europe/Warsaw",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
   });
-  const warsawDate = new Date(warsawStr);
-  const diffMs = target.getTime() - warsawDate.getTime();
 
-  return new Date(target.getTime() + diffMs);
+  const parts = formatter.formatToParts(utcDate);
+  const wDay = parseInt(
+    parts.find((p) => p.type === "day")?.value || String(day),
+  );
+  const wHour = parseInt(
+    parts.find((p) => p.type === "hour")?.value || String(hours),
+  );
+  const wMin = parseInt(
+    parts.find((p) => p.type === "minute")?.value || String(minutes),
+  );
+
+  // 3. Obliczenie różnicy minutowej
+  let diffMinutes =
+    (wDay === day
+      ? wHour * 60 + wMin
+      : wDay > day
+        ? (wHour + 24) * 60 + wMin
+        : (wHour - 24) * 60 + wMin) -
+    (hours * 60 + minutes);
+
+  // 4. Korekta punktu UTC
+  return new Date(utcDate.getTime() - diffMinutes * 60 * 1000);
 }
 
 function anonymizeName(name: string, id: number): string {
@@ -90,6 +124,28 @@ function anonymizeName(name: string, id: number): string {
     return `${firstName} ${lastInitial}. (ID: ${id})`;
   }
   return `${name} (ID: ${id})`;
+}
+
+const holidayCache = new Map<number, Set<string>>();
+
+async function getPublicHolidays(year: number): Promise<Set<string>> {
+  if (holidayCache.has(year)) {
+    return holidayCache.get(year)!;
+  }
+  try {
+    console.log(`Pobieranie świąt na rok ${year}...`);
+    const response = await fetch(
+      `https://date.nager.at/api/v3/PublicHolidays/${year}/PL`,
+    );
+    if (!response.ok) return new Set();
+    const data = (await response.json()) as { date: string }[];
+    const holidays = new Set(data.map((h) => h.date));
+    holidayCache.set(year, holidays);
+    return holidays;
+  } catch (error) {
+    console.error("Błąd pobierania świąt:", error);
+    return new Set();
+  }
 }
 
 export async function registerRoutes(
@@ -628,7 +684,7 @@ export async function registerRoutes(
 
       res.status(201).json({ count });
     } catch (err) {
-      console.error(err);
+      console.error("[GENERATOR ERROR]", err);
       res.status(500).json({ message: "Błąd generowania slotów" });
     }
   });
@@ -722,7 +778,7 @@ export async function registerRoutes(
         message: `Zaktualizowano ${updatedCount}, utworzono ${count} lekcji.`,
       });
     } catch (err) {
-      console.error(err);
+      console.error("[GENERATOR ERROR]", err);
       res.status(500).json({ message: "Błąd generowania" });
     }
   });

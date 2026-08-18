@@ -90,6 +90,7 @@ export default function TemplateTab() {
   const { toast } = useToast();
   const dateLocale = i18n.language.startsWith("pl") ? pl : enUS;
 
+  // --- STANY ---
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
   const [genRange, setGenRange] = useState({
     start: new Date(),
@@ -100,7 +101,7 @@ export default function TemplateTab() {
     dayOfWeek: "1",
     startTime: "",
     durationMinutes: "60",
-    price: "80",
+    price: "100",
     studentId: "none",
     locationType: "onsite",
     travelMinutes: "0",
@@ -110,10 +111,11 @@ export default function TemplateTab() {
     useState<WeeklySchedule | null>(null);
 
   const [tplFormDuration, setTplFormDuration] = useState(60);
-  const [tplFormPrice, setTplFormPrice] = useState(80);
+  const [tplFormPrice, setTplFormPrice] = useState(100);
   const [tplFormLocation, setTplFormLocation] = useState("onsite");
   const [tplFormTravel, setTplFormTravel] = useState(0);
 
+  // --- DATA ---
   const { data: users } = useQuery<User[]>({ queryKey: ["/api/users"] });
   const { data: weeklySchedule } = useQuery<WeeklySchedule[]>({
     queryKey: ["/api/weekly-schedule"],
@@ -123,13 +125,15 @@ export default function TemplateTab() {
     if (editingTemplateItem) {
       setTplFormDuration(editingTemplateItem.durationMinutes);
       setTplFormPrice(
-        Math.ceil((editingTemplateItem.durationMinutes / 60) * 80),
+        editingTemplateItem.price ||
+          Math.ceil((editingTemplateItem.durationMinutes / 60) * 100),
       );
       setTplFormLocation(editingTemplateItem.locationType || "onsite");
       setTplFormTravel(editingTemplateItem.travelMinutes || 0);
     }
   }, [editingTemplateItem]);
 
+  // --- KOLIZJE (Dojazd PRZED lekcją) ---
   const checkTemplateCollision = (
     dayOfWeek: number,
     startTimeStr: string,
@@ -171,6 +175,7 @@ export default function TemplateTab() {
     );
   }, [templateForm, weeklySchedule]);
 
+  // --- MUTACJE ---
   const createWeeklyItemMutation = useMutation({
     mutationFn: async (item: any) => {
       const res = await apiRequest("POST", "/api/weekly-schedule", item);
@@ -180,6 +185,13 @@ export default function TemplateTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/weekly-schedule"] });
       toast({ title: t("admin.template_added") });
       setTemplateForm((prev) => ({ ...prev, startTime: "" }));
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("toasts.error"),
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -210,6 +222,13 @@ export default function TemplateTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/weekly-schedule"] });
       toast({ title: t("admin.template_removed") });
     },
+    onError: (error: Error) => {
+      toast({
+        title: t("toasts.error"),
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const generateFromTemplateMutation = useMutation({
@@ -225,7 +244,7 @@ export default function TemplateTab() {
       queryClient.invalidateQueries({ queryKey: ["/api/slots"] });
       toast({
         title: t("admin.generate_submit"),
-        description: data.message,
+        description: data.message || "Grafik został wygenerowany pomyślnie!",
       });
       setIsGenerateOpen(false);
       sendTelegramNotification(
@@ -233,6 +252,13 @@ export default function TemplateTab() {
           "notifications.schedule_generated",
         )}`,
       );
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t("toasts.error"),
+        description: error.message || "Błąd generowania grafiku",
+        variant: "destructive",
+      });
     },
   });
 
@@ -244,6 +270,7 @@ export default function TemplateTab() {
           <CardDescription>{t("admin.template_desc")}</CardDescription>
         </div>
 
+        {/* Przycisk Generowania */}
         <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
           <DialogTrigger asChild>
             <Button variant="outline">
@@ -318,10 +345,11 @@ export default function TemplateTab() {
             </div>
             <DialogFooter>
               <Button
+                type="button"
                 onClick={() =>
                   generateFromTemplateMutation.mutate({
-                    startDate: genRange.start.toISOString(),
-                    endDate: genRange.end.toISOString(),
+                    startDate: format(genRange.start, "yyyy-MM-dd"),
+                    endDate: format(genRange.end, "yyyy-MM-dd"),
                   })
                 }
                 disabled={generateFromTemplateMutation.isPending}
@@ -337,6 +365,7 @@ export default function TemplateTab() {
       </CardHeader>
 
       <CardContent>
+        {/* Formularz dodawania */}
         <div className="grid gap-4 mb-6 p-4 bg-muted/30 rounded-lg border">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
@@ -357,6 +386,7 @@ export default function TemplateTab() {
                   <SelectItem value="4">{t("admin.days.4")}</SelectItem>
                   <SelectItem value="5">{t("admin.days.5")}</SelectItem>
                   <SelectItem value="6">{t("admin.days.6")}</SelectItem>
+                  <SelectItem value="0">{t("admin.days.0")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -378,12 +408,14 @@ export default function TemplateTab() {
               <Input
                 type="number"
                 value={templateForm.durationMinutes}
-                onChange={(e) =>
+                onChange={(e) => {
+                  const duration = parseInt(e.target.value) || 0;
                   setTemplateForm({
                     ...templateForm,
                     durationMinutes: e.target.value,
-                  })
-                }
+                    price: String(Math.ceil((duration / 60) * 100)),
+                  });
+                }}
               />
             </div>
             <div>
@@ -488,6 +520,7 @@ export default function TemplateTab() {
 
           <div className="flex justify-end mt-4">
             <Button
+              type="button"
               className="w-full md:w-auto"
               disabled={isTemplateAddCollision || !templateForm.startTime}
               onClick={() => {
@@ -514,8 +547,9 @@ export default function TemplateTab() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((dayNum) => (
+        {/* Lista szablonów */}
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+          {[1, 2, 3, 4, 5, 6, 0].map((dayNum) => (
             <div key={dayNum} className="space-y-3">
               <div className="font-bold text-center border-b pb-2 text-primary">
                 {t(`admin.days.${dayNum}`)}
@@ -603,6 +637,7 @@ export default function TemplateTab() {
           ))}
         </div>
 
+        {/* Modal edycji elementu szablonu */}
         <Dialog
           open={!!editingTemplateItem}
           onOpenChange={(open) => !open && setEditingTemplateItem(null)}
@@ -679,6 +714,7 @@ export default function TemplateTab() {
                         <SelectItem value="4">{t("admin.days.4")}</SelectItem>
                         <SelectItem value="5">{t("admin.days.5")}</SelectItem>
                         <SelectItem value="6">{t("admin.days.6")}</SelectItem>
+                        <SelectItem value="0">{t("admin.days.0")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -733,7 +769,7 @@ export default function TemplateTab() {
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;
                         setTplFormDuration(val);
-                        setTplFormPrice(Math.ceil((val / 60) * 80));
+                        setTplFormPrice(Math.ceil((val / 60) * 100));
                       }}
                     />
                   </div>
