@@ -9,7 +9,6 @@ import {
   addWeeks,
   subWeeks,
   addMinutes,
-  isSunday,
   differenceInMinutes,
   setSeconds,
   setMilliseconds,
@@ -50,28 +49,6 @@ import {
 } from "@/components/ui/dialog";
 import type { Slot, User, InsertSlot } from "@shared/schema";
 
-const isPublicHoliday = (date: Date) => {
-  const dateString = format(date, "MM-dd");
-  const year = date.getFullYear();
-  const fixed = [
-    "01-01",
-    "01-06",
-    "05-01",
-    "05-03",
-    "08-15",
-    "11-01",
-    "11-11",
-    "12-25",
-    "12-26",
-  ];
-  if (fixed.includes(dateString)) return true;
-  if (year === 2025 && ["04-20", "04-21", "06-19"].includes(dateString))
-    return true;
-  if (year === 2026 && ["04-05", "04-06", "06-04"].includes(dateString))
-    return true;
-  return false;
-};
-
 const sendTelegramNotification = async (message: string) => {
   const token = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
   const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
@@ -95,7 +72,6 @@ export default function CalendarTab() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
 
-  // Sprawdzamy, czy aktualny język to polski
   const isPl = i18n.language.startsWith("pl");
   const dateLocale = isPl ? pl : enUS;
 
@@ -114,7 +90,7 @@ export default function CalendarTab() {
   >({
     startTime: new Date(),
     duration: 60,
-    price: 80,
+    price: 100,
     locationType: "onsite",
     travelMinutes: 0,
     studentId: undefined,
@@ -122,7 +98,7 @@ export default function CalendarTab() {
 
   const [editFormTime, setEditFormTime] = useState("");
   const [editFormDuration, setEditFormDuration] = useState(60);
-  const [editFormPrice, setEditFormPrice] = useState(80);
+  const [editFormPrice, setEditFormPrice] = useState(100);
   const [editFormLocation, setEditFormLocation] = useState("onsite");
   const [editFormTravel, setEditFormTravel] = useState(0);
 
@@ -152,7 +128,7 @@ export default function CalendarTab() {
 
       setEditFormTime(format(new Date(editingSlot.startTime), "HH:mm"));
       setEditFormDuration(duration > 0 ? duration : 60);
-      setEditFormPrice(editingSlot.price || Math.ceil((duration / 60) * 80));
+      setEditFormPrice(editingSlot.price || Math.ceil((duration / 60) * 100));
       setEditFormLocation(editingSlot.locationType || "onsite");
       setEditFormTravel(editingSlot.travelMinutes || 0);
     }
@@ -313,7 +289,7 @@ export default function CalendarTab() {
     setNewSlotData({
       startTime: initDate,
       duration: 60,
-      price: 80,
+      price: 100,
       locationType: "onsite",
       travelMinutes: 0,
       studentId: undefined,
@@ -393,16 +369,11 @@ export default function CalendarTab() {
             (a, b) =>
               new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
           );
-          const isHoliday = isPublicHoliday(day);
-          const isSun = isSunday(day);
-          const isFree = isHoliday || isSun;
 
           return (
             <div
               key={day.toISOString()}
-              className={`border rounded-lg bg-card overflow-hidden ${
-                isFree ? "bg-red-50 dark:bg-red-900/10" : ""
-              }`}
+              className="border rounded-lg bg-card overflow-hidden"
             >
               <div
                 className={`p-3 text-center border-b ${
@@ -419,140 +390,129 @@ export default function CalendarTab() {
                 </div>
               </div>
               <div className="p-2 space-y-2 min-h-[200px]">
-                {isHoliday ? (
-                  <div className="text-center text-red-500 py-4 font-medium">
-                    {t("admin.holiday")}
+                {daySlots.length === 0 && (
+                  <div className="text-center text-muted-foreground text-sm py-4">
+                    {t("admin.no_slots")}
                   </div>
-                ) : (
-                  <>
-                    {daySlots.length === 0 && (
-                      <div className="text-center text-muted-foreground text-sm py-4">
-                        {t("admin.no_slots")}
-                      </div>
-                    )}
-                    {daySlots.map((slot) => {
-                      const student = users?.find(
-                        (u) => u.id === slot.studentId,
-                      );
-                      const isCommute = slot.locationType === "commute";
-                      const startTime = new Date(slot.startTime);
-                      const commuteStart = isCommute
-                        ? addMinutes(startTime, -(slot.travelMinutes || 0))
-                        : null;
+                )}
+                {daySlots.map((slot) => {
+                  const student = users?.find((u) => u.id === slot.studentId);
+                  const isCommute = slot.locationType === "commute";
+                  const startTime = new Date(slot.startTime);
+                  const commuteStart = isCommute
+                    ? addMinutes(startTime, -(slot.travelMinutes || 0))
+                    : null;
 
-                      return (
-                        <div
-                          key={slot.id}
-                          className={`group relative text-sm p-3 rounded-md border shadow-sm transition-all ${
-                            slot.isBooked
-                              ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200"
-                              : "bg-green-50 dark:bg-green-900/20 border-green-200"
-                          }`}
-                        >
-                          <div className="font-bold flex justify-between items-center mb-1">
-                            <div className="flex flex-col">
-                              <span className="flex items-center gap-1 text-base">
-                                {format(startTime, "HH:mm")}
-                              </span>
-                              {isCommute && commuteStart && (
-                                <span
-                                  className="text-xs text-orange-600 flex items-center gap-1 mt-0.5"
-                                  title={
-                                    isPl ? "Godzina wyjazdu" : "Departure time"
-                                  }
-                                >
-                                  <Car className="h-3 w-3" />
-                                  {isPl ? "Wyjazd:" : "Departure:"}{" "}
-                                  {format(commuteStart, "HH:mm")}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 bg-white/50 dark:bg-black/50 rounded-md p-1 shadow-sm backdrop-blur-sm">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
-                                onClick={() => setEditingSlot(slot)}
-                                title={t("admin.edit_slot_title")}
-                              >
-                                <Pencil className="h-3 w-3" />
-                              </Button>
-
-                              {slot.isBooked && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 text-orange-500 hover:text-orange-700 hover:bg-orange-100"
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(t("booking.cancel_desc"))
-                                    )
-                                      cancelSlotMutation.mutate(slot.id);
-                                  }}
-                                  title={t("booking.cancel_btn")}
-                                >
-                                  <XCircle className="h-3 w-3" />
-                                </Button>
-                              )}
-
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                onClick={() => {
-                                  if (window.confirm(t("admin.delete_confirm")))
-                                    deleteSlotMutation.mutate({
-                                      id: slot.id,
-                                      date: new Date(slot.startTime),
-                                    });
-                                }}
-                                title={t("admin.delete")}
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {slot.isBooked ? (
-                            <div className="space-y-1 mt-2">
-                              <div className="font-medium text-blue-700 dark:text-blue-300">
-                                {student?.name || t("admin.unknown_student")}
-                              </div>
-                              <div className="flex justify-between items-center text-xs mt-1 pt-1 border-t border-blue-200/50">
-                                <span className="font-semibold">
-                                  {slot.price} PLN
-                                </span>
-                                {isCommute && (
-                                  <span className="text-orange-600 font-medium">
-                                    +{slot.travelMinutes} min{" "}
-                                    {t("admin.commute_suffix")}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-green-700 dark:text-green-400 font-medium flex justify-between items-center mt-2">
-                              <span>{t("admin.available")}</span>
-                              {isCommute && (
-                                <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {slot.travelMinutes}m
-                                </span>
-                              )}
-                            </div>
+                  return (
+                    <div
+                      key={slot.id}
+                      className={`group relative text-sm p-3 rounded-md border shadow-sm transition-all ${
+                        slot.isBooked
+                          ? "bg-blue-50 dark:bg-blue-900/20 border-blue-200"
+                          : "bg-green-50 dark:bg-green-900/20 border-green-200"
+                      }`}
+                    >
+                      <div className="font-bold flex justify-between items-center mb-1">
+                        <div className="flex flex-col">
+                          <span className="flex items-center gap-1 text-base">
+                            {format(startTime, "HH:mm")}
+                          </span>
+                          {isCommute && commuteStart && (
+                            <span
+                              className="text-xs text-orange-600 flex items-center gap-1 mt-0.5"
+                              title={
+                                isPl ? "Godzina wyjazdu" : "Departure time"
+                              }
+                            >
+                              <Car className="h-3 w-3" />
+                              {isPl ? "Wyjazd:" : "Departure:"}{" "}
+                              {format(commuteStart, "HH:mm")}
+                            </span>
                           )}
                         </div>
-                      );
-                    })}
-                  </>
-                )}
+
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 bg-white/50 dark:bg-black/50 rounded-md p-1 shadow-sm backdrop-blur-sm">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary hover:text-primary-foreground hover:bg-primary"
+                            onClick={() => setEditingSlot(slot)}
+                            title={t("admin.edit_slot_title")}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+
+                          {slot.isBooked && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-orange-500 hover:text-orange-700 hover:bg-orange-100"
+                              onClick={() => {
+                                if (window.confirm(t("booking.cancel_desc")))
+                                  cancelSlotMutation.mutate(slot.id);
+                              }}
+                              title={t("booking.cancel_btn")}
+                            >
+                              <XCircle className="h-3 w-3" />
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => {
+                              if (window.confirm(t("admin.delete_confirm")))
+                                deleteSlotMutation.mutate({
+                                  id: slot.id,
+                                  date: new Date(slot.startTime),
+                                });
+                            }}
+                            title={t("admin.delete")}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {slot.isBooked ? (
+                        <div className="space-y-1 mt-2">
+                          <div className="font-medium text-blue-700 dark:text-blue-300">
+                            {student?.name || t("admin.unknown_student")}
+                          </div>
+                          <div className="flex justify-between items-center text-xs mt-1 pt-1 border-t border-blue-200/50">
+                            <span className="font-semibold">
+                              {slot.price} PLN
+                            </span>
+                            {isCommute && (
+                              <span className="text-orange-600 font-medium">
+                                +{slot.travelMinutes} min{" "}
+                                {t("admin.commute_suffix")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-green-700 dark:text-green-400 font-medium flex justify-between items-center mt-2">
+                          <span>{t("admin.available")}</span>
+                          {isCommute && (
+                            <span className="text-xs text-orange-600 bg-orange-100 dark:bg-orange-900/30 px-1 rounded flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {slot.travelMinutes}m
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </div>
 
+      {/* Add Slot Modal */}
       <Dialog open={isAddSlotOpen} onOpenChange={setIsAddSlotOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -614,7 +574,7 @@ export default function CalendarTab() {
                     setNewSlotData({
                       ...newSlotData,
                       duration: newDuration,
-                      price: Math.ceil((newDuration / 60) * 80),
+                      price: Math.ceil((newDuration / 60) * 100),
                     });
                   }}
                 />
@@ -735,6 +695,7 @@ export default function CalendarTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Slot Modal */}
       <Dialog
         open={!!editingSlot}
         onOpenChange={(open) => !open && setEditingSlot(null)}
@@ -809,7 +770,7 @@ export default function CalendarTab() {
                     onChange={(e) => {
                       const val = parseInt(e.target.value) || 0;
                       setEditFormDuration(val);
-                      setEditFormPrice(Math.ceil((val / 60) * 80));
+                      setEditFormPrice(Math.ceil((val / 60) * 100));
                     }}
                   />
                 </div>

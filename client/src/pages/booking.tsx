@@ -20,7 +20,6 @@ import {
   isSameDay,
   addWeeks,
   subWeeks,
-  isSunday,
   addMinutes,
 } from "date-fns";
 import { pl, enUS } from "date-fns/locale";
@@ -56,29 +55,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn } from "@/lib/utils";
 import { type Slot } from "@shared/schema";
 
-const isPublicHoliday = (date: Date) => {
-  const dateString = format(date, "MM-dd");
-  const year = date.getFullYear();
-  const fixed = [
-    "01-01",
-    "01-06",
-    "05-01",
-    "05-03",
-    "08-15",
-    "11-01",
-    "11-11",
-    "12-25",
-    "12-26",
-  ];
-  if (fixed.includes(dateString)) return true;
-  if (year === 2025 && ["04-20", "04-21", "06-19"].includes(dateString))
-    return true;
-  if (year === 2026 && ["04-05", "04-06", "06-04"].includes(dateString))
-    return true;
-  return false;
-};
-
-// Funkcja pomocnicza do usuwania informacji o czasie z tekstu (np. "(+30 min)")
 const stripTimeInfo = (text: string) => {
   return text.replace(/\s*\(.*?\)/, "").trim();
 };
@@ -92,7 +68,7 @@ export default function BookingPage() {
 
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [currentWeekStart, setCurrentWeekStart] = useState(
-    startOfWeek(new Date(), { weekStartsOn: 1 })
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
   );
 
   const weekStart = currentWeekStart;
@@ -119,7 +95,6 @@ export default function BookingPage() {
   const [bookingSlot, setBookingSlot] = useState<Slot | null>(null);
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [bookingTopic, setBookingTopic] = useState("");
-  const [bookingDuration, setBookingDuration] = useState("60");
   const [locationType, setLocationType] = useState("onsite");
 
   const [slotToCancel, setSlotToCancel] = useState<Slot | null>(null);
@@ -145,7 +120,7 @@ export default function BookingPage() {
     }) || [];
 
   selectedDaySlots.sort(
-    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
   );
 
   const hasFreeSlots = selectedDaySlots.some((s) => !s.isBooked);
@@ -158,15 +133,13 @@ export default function BookingPage() {
           setIsWaitlistOpen(false);
           setWaitlistNote("");
         },
-      }
+      },
     );
   };
 
   const handleOpenBooking = (slot: Slot) => {
     setBookingSlot(slot);
     setBookingTopic("");
-    setBookingDuration("60");
-    // Pobieramy domyślny typ ze slotu, jeśli jest ustawiony
     setLocationType(slot.locationType || "onsite");
     setIsBookingOpen(true);
   };
@@ -180,6 +153,8 @@ export default function BookingPage() {
 
     const previousSlots = queryClient.getQueryData<Slot[]>(queryKey);
 
+    const chosenTopic = bookingTopic.trim() || "Matematyka";
+
     queryClient.setQueryData<Slot[]>(queryKey, (old) => {
       if (!old) return [];
       return old.map((slot) => {
@@ -188,7 +163,7 @@ export default function BookingPage() {
             ...slot,
             isBooked: true,
             studentId: user?.id || 0,
-            topic: bookingTopic || "Matematyka",
+            topic: chosenTopic,
           } as Slot;
         }
         return slot;
@@ -198,9 +173,9 @@ export default function BookingPage() {
     bookSlotMutation.mutate(
       {
         id: bookingSlot.id,
-        durationMinutes: parseInt(bookingDuration),
+        durationMinutes: 60,
         locationType,
-        topic: bookingTopic,
+        topic: chosenTopic,
       },
       {
         onError: () => {
@@ -212,7 +187,7 @@ export default function BookingPage() {
         onSettled: () => {
           queryClient.invalidateQueries({ queryKey });
         },
-      }
+      },
     );
   };
 
@@ -250,26 +225,6 @@ export default function BookingPage() {
         queryClient.invalidateQueries({ queryKey });
       },
     });
-  };
-
-  const checkAvailability = (startSlot: Slot, durationMinutes: number) => {
-    const buffer = locationType === "commute" ? 30 : 0;
-    const totalMinutes = durationMinutes + buffer;
-
-    if (totalMinutes === 60) return true;
-
-    const startTime = new Date(startSlot.startTime);
-    const endTime = addMinutes(startTime, totalMinutes);
-
-    const collisions = slots?.filter((s) => {
-      if (s.id === startSlot.id) return false;
-      const sStart = new Date(s.startTime);
-      const sEnd = new Date(s.endTime);
-      const overlaps = sStart < endTime && sEnd > startTime;
-      return overlaps && s.isBooked;
-    });
-
-    return !collisions || collisions.length === 0;
   };
 
   if (isLoading) {
@@ -320,7 +275,7 @@ export default function BookingPage() {
                 variant="ghost"
                 className={cn(
                   "flex-1 lg:w-[260px] justify-center font-semibold text-sm sm:text-lg h-10 px-1 sm:px-4 mx-1 whitespace-nowrap overflow-hidden text-ellipsis",
-                  !selectedDate && "text-muted-foreground"
+                  !selectedDate && "text-muted-foreground",
                 )}
               >
                 <CalendarDays className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-primary shrink-0 hidden xs:inline" />
@@ -360,10 +315,6 @@ export default function BookingPage() {
           <CardContent>
             <div className="flex lg:grid lg:grid-cols-7 gap-2 overflow-x-auto pb-4 touch-pan-x snap-x scrollbar-hide">
               {days.map((day) => {
-                const isHoliday = isPublicHoliday(day);
-                const isSun = isSunday(day);
-                const isFreeDay = isHoliday || isSun;
-
                 const daySlots =
                   slots?.filter((s) => {
                     const slotTime = new Date(s.startTime);
@@ -384,11 +335,7 @@ export default function BookingPage() {
                       ${
                         isSelected
                           ? "bg-primary text-primary-foreground shadow-lg scale-[1.02] border-primary z-10"
-                          : `hover:bg-accent hover:text-accent-foreground border-transparent hover:border-border ${
-                              isFreeDay
-                                ? "bg-red-50 dark:bg-red-900/10"
-                                : "bg-card/50"
-                            }`
+                          : "hover:bg-accent hover:text-accent-foreground border-transparent hover:border-border bg-card/50"
                       }
                       ${
                         isToday && !isSelected
@@ -400,18 +347,10 @@ export default function BookingPage() {
                     {isToday && (
                       <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-blue-500" />
                     )}
-                    <span
-                      className={`text-xs font-semibold uppercase tracking-wider opacity-70 mb-1 ${
-                        isFreeDay && !isSelected ? "text-red-500" : ""
-                      }`}
-                    >
+                    <span className="text-xs font-semibold uppercase tracking-wider opacity-70 mb-1">
                       {format(day, "EEE", { locale: dateLocale })}
                     </span>
-                    <span
-                      className={`text-2xl font-bold ${
-                        isFreeDay && !isSelected ? "text-red-600" : ""
-                      }`}
-                    >
+                    <span className="text-2xl font-bold">
                       {format(day, "d")}
                     </span>
 
@@ -425,9 +364,7 @@ export default function BookingPage() {
                         />
                       </div>
                       <span className="text-[10px] opacity-60">
-                        {isHoliday
-                          ? t("booking.holiday")
-                          : freeCount > 0
+                        {freeCount > 0
                           ? t("booking.free_slots_count", { count: freeCount })
                           : t("booking.none")}
                       </span>
@@ -455,9 +392,7 @@ export default function BookingPage() {
                 <div className="space-y-1">
                   <p className="font-medium">{t("booking.no_slots_title")}</p>
                   <p className="text-sm text-muted-foreground">
-                    {isPublicHoliday(selectedDate)
-                      ? t("booking.no_slots_holiday")
-                      : t("booking.no_slots_day")}
+                    {t("booking.no_slots_day")}
                   </p>
                 </div>
               </div>
@@ -612,16 +547,13 @@ export default function BookingPage() {
                         locale: dateLocale,
                       })}
                     </p>
-                    {/* ZMIANA: Usunięto dodawanie 30 min w podglądzie, aby uczeń widział "czysty" czas lekcji */}
                     <p className="text-sm text-muted-foreground">
                       {format(new Date(bookingSlot.startTime), "HH:mm")} -{" "}
                       {format(
-                        addMinutes(
-                          new Date(bookingSlot.startTime),
-                          parseInt(bookingDuration)
-                        ),
-                        "HH:mm"
-                      )}
+                        addMinutes(new Date(bookingSlot.startTime), 60),
+                        "HH:mm",
+                      )}{" "}
+                      (60 min)
                     </p>
                   </div>
                 </div>
@@ -650,85 +582,7 @@ export default function BookingPage() {
                         className="flex-1 cursor-pointer font-normal flex items-center gap-2"
                       >
                         <Car className="w-4 h-4 text-orange-500" />
-                        {/* ZMIANA: Użycie funkcji stripTimeInfo, aby ukryć "(+30 min)" */}
                         {stripTimeInfo(t("booking.location_commute"))}
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                  {/* ZMIANA: Ukryto informację o dojeździe, aby nie zdradzać czasu trwania */}
-                  {/* {locationType === "commute" && (
-                    <p className="text-xs text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
-                      {t("booking.commute_info")}
-                    </p>
-                  )} */}
-                </div>
-
-                <div className="space-y-3">
-                  <Label>{t("booking.duration_label")}</Label>
-                  <RadioGroup
-                    value={bookingDuration}
-                    onValueChange={setBookingDuration}
-                    className="grid gap-2"
-                  >
-                    <div className="flex items-center space-x-2 border rounded-lg p-3 cursor-pointer hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                      <RadioGroupItem value="60" id="r60" />
-                      <Label
-                        htmlFor="r60"
-                        className="flex-1 cursor-pointer font-normal"
-                      >
-                        {t("booking.duration_60")}
-                      </Label>
-                    </div>
-
-                    <div
-                      className={cn(
-                        "flex items-center space-x-2 border rounded-lg p-3 transition-colors",
-                        checkAvailability(bookingSlot, 90)
-                          ? "cursor-pointer hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-                          : "opacity-50 cursor-not-allowed bg-muted/50"
-                      )}
-                    >
-                      <RadioGroupItem
-                        value="90"
-                        id="r90"
-                        disabled={!checkAvailability(bookingSlot, 90)}
-                      />
-                      <Label
-                        htmlFor="r90"
-                        className="flex-1 cursor-pointer font-normal flex justify-between"
-                      >
-                        <span>{t("booking.duration_90")}</span>
-                        {!checkAvailability(bookingSlot, 90) && (
-                          <span className="text-xs text-destructive font-medium">
-                            {t("booking.duration_unavailable")}
-                          </span>
-                        )}
-                      </Label>
-                    </div>
-
-                    <div
-                      className={cn(
-                        "flex items-center space-x-2 border rounded-lg p-3 transition-colors",
-                        checkAvailability(bookingSlot, 120)
-                          ? "cursor-pointer hover:bg-accent has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-                          : "opacity-50 cursor-not-allowed bg-muted/50"
-                      )}
-                    >
-                      <RadioGroupItem
-                        value="120"
-                        id="r120"
-                        disabled={!checkAvailability(bookingSlot, 120)}
-                      />
-                      <Label
-                        htmlFor="r120"
-                        className="flex-1 cursor-pointer font-normal flex justify-between"
-                      >
-                        <span>{t("booking.duration_120")}</span>
-                        {!checkAvailability(bookingSlot, 120) && (
-                          <span className="text-xs text-destructive font-medium">
-                            {t("booking.duration_unavailable")}
-                          </span>
-                        )}
                       </Label>
                     </div>
                   </RadioGroup>
@@ -764,6 +618,7 @@ export default function BookingPage() {
           </DialogContent>
         </Dialog>
 
+        {/* --- Dialog Potwierdzenia Anulowania --- */}
         <Dialog
           open={!!slotToCancel}
           onOpenChange={(open) => !open && setSlotToCancel(null)}

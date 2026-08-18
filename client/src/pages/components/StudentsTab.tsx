@@ -65,7 +65,7 @@ export default function StudentsTab() {
 
   const [newStudent, setNewStudent] = useState<Partial<InsertUser>>({
     role: "student",
-    defaultPrice: 80,
+    defaultPrice: 100,
   });
 
   const { data: users } = useQuery<UserWithBalance[]>({
@@ -80,7 +80,6 @@ export default function StudentsTab() {
   const getNoteTranslation = (note: string | null | undefined) => {
     if (!note) return "-";
 
-    // Używamy .includes, aby dopasować się do wariantów
     if (note.includes("Zaimportowano automatycznie"))
       return t("admin.note_auto");
     if (note.includes("Fikcyjny uczeń dodany w celu testowania aplikacji"))
@@ -88,7 +87,7 @@ export default function StudentsTab() {
     if (note.includes("Fikcyjny uczeń do testowania funkcjonalności aplikacji"))
       return t("admin.note_fictional_2");
 
-    return note; // Zwróci notatkę taką, jaka jest w bazie, jeśli nie pasuje do żadnego schematu
+    return note;
   };
 
   const createUserMutation = useMutation({
@@ -248,7 +247,7 @@ export default function StudentsTab() {
                 <Label>{t("admin.default_price")}</Label>
                 <Input
                   type="number"
-                  value={newStudent.defaultPrice || 80}
+                  value={newStudent.defaultPrice || 100}
                   onChange={(e) =>
                     setNewStudent({
                       ...newStudent,
@@ -417,7 +416,7 @@ export default function StudentsTab() {
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label>{t("admin.table.username")}</Label>
+                                  <Label>{t("admin.table.username")} </Label>
                                   <Input
                                     name="username"
                                     defaultValue={editingStudent?.username}
@@ -466,7 +465,7 @@ export default function StudentsTab() {
                                     name="defaultPrice"
                                     type="number"
                                     defaultValue={
-                                      editingStudent?.defaultPrice || 80
+                                      editingStudent?.defaultPrice || 100
                                     }
                                   />
                                 </div>
@@ -540,7 +539,8 @@ export default function StudentsTab() {
                 </div>
               )}
               {unpaidSlots?.map((slot) => {
-                const price = slot.price ?? selectedStudent?.defaultPrice ?? 0;
+                const price =
+                  slot.price ?? selectedStudent?.defaultPrice ?? 100;
                 return (
                   <div
                     key={slot.id}

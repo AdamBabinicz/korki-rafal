@@ -25,17 +25,10 @@ import {
 import { z } from "zod";
 import {
   addDays,
-  setHours,
-  setMinutes,
-  parseISO,
   differenceInHours,
   differenceInMinutes,
   format,
-  getYear,
-  getDay,
   addMinutes,
-  isBefore,
-  isAfter,
   setSeconds,
   setMilliseconds,
 } from "date-fns";
@@ -54,6 +47,9 @@ async function hashPassword(password: string) {
   return `${buf.toString("hex")}.${salt}`;
 }
 
+/**
+ * Zwraca obiekt Date w strefie czasowej Europe/Warsaw
+ */
 function getWarsawDate(date: Date): Date {
   return date;
 }
@@ -69,6 +65,27 @@ function getWarsawHourMinute(date: Date) {
   return { h: h === 24 ? 0 : h, m };
 }
 
+/**
+ * Precyzyjnie tworzy obiekt Date dla podanej daty YYYY-MM-DD i godziny HH:mm w czasie polskim (Europe/Warsaw)
+ * Eliminuje błąd przesunięć o 1 dzień / 1 godzinę na serwerach UTC (np. Render).
+ */
+function createWarsawDateTime(dateStr: string, timeStr: string): Date {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const [hours, minutes] = timeStr.split(":").map(Number);
+
+  // Punkt wyjścia w UTC
+  const target = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0));
+
+  // Sprawdzamy czas w Warszawie dla tego punktu
+  const warsawStr = target.toLocaleString("en-US", {
+    timeZone: "Europe/Warsaw",
+  });
+  const warsawDate = new Date(warsawStr);
+  const diffMs = target.getTime() - warsawDate.getTime();
+
+  return new Date(target.getTime() + diffMs);
+}
+
 function anonymizeName(name: string, id: number): string {
   if (!name) return `Uczeń (ID: ${id})`;
   const parts = name.trim().split(" ");
@@ -78,28 +95,6 @@ function anonymizeName(name: string, id: number): string {
     return `${firstName} ${lastInitial}. (ID: ${id})`;
   }
   return `${name} (ID: ${id})`;
-}
-
-const holidayCache = new Map<number, Set<string>>();
-
-async function getPublicHolidays(year: number): Promise<Set<string>> {
-  if (holidayCache.has(year)) {
-    return holidayCache.get(year)!;
-  }
-  try {
-    console.log(`Pobieranie świąt na rok ${year}...`);
-    const response = await fetch(
-      `https://date.nager.at/api/v3/PublicHolidays/${year}/PL`,
-    );
-    if (!response.ok) return new Set();
-    const data = (await response.json()) as { date: string }[];
-    const holidays = new Set(data.map((h) => h.date));
-    holidayCache.set(year, holidays);
-    return holidays;
-  } catch (error) {
-    console.error("Błąd pobierania świąt:", error);
-    return new Set();
-  }
 }
 
 export async function registerRoutes(
@@ -133,6 +128,8 @@ export async function registerRoutes(
     console.error("[DB] Błąd auto-migracji:", err);
   }
 
+  // --- UŻYTKOWNICY ---
+
   app.get("/api/users", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -150,7 +147,7 @@ export async function registerRoutes(
       const usersWithBalance = allUsers.map((u) => {
         const studentSlots = unpaidSlots.filter((s) => s.studentId === u.id);
         const balance = studentSlots.reduce((sum, s) => {
-          const price = s.price ?? u.defaultPrice ?? 0;
+          const price = s.price ?? u.defaultPrice ?? 100;
           return sum + price;
         }, 0);
 
@@ -322,6 +319,8 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  // --- SLOTY ---
+
   app.get("/api/slots", async (req, res) => {
     try {
       const start = req.query.start
@@ -405,6 +404,8 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  // --- SZABLON TYGODNIOWY ---
+
   app.get("/api/weekly-schedule", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const schedule = await storage.getWeeklySchedule();
@@ -451,6 +452,8 @@ export async function registerRoutes(
     await storage.deleteWeeklyScheduleItem(id);
     res.sendStatus(204);
   });
+
+  // --- WAITLIST ---
 
   app.get("/api/waitlist", async (req, res) => {
     const user = req.user as User;
@@ -533,6 +536,8 @@ export async function registerRoutes(
     res.sendStatus(204);
   });
 
+  // --- GENERATORY (Odblokowano niedziele i święta + Naprawiono przesunięcie dat) ---
+
   app.post("/api/slots/generate", async (req, res) => {
     const user = req.user as User;
     if (!req.isAuthenticated() || user.role !== "admin") {
@@ -541,92 +546,76 @@ export async function registerRoutes(
     try {
       const { startDate, endDate, startTime, endTime, duration } =
         generateSlotsSchema.parse(req.body);
-      const start = parseISO(startDate);
-      const end = parseISO(endDate);
-      const startYear = getYear(start);
-      const holidays = await getPublicHolidays(startYear);
-      if (getYear(end) !== startYear) {
-        const h2 = await getPublicHolidays(getYear(end));
-        h2.forEach((h) => holidays.add(h));
-      }
 
-      const existingSlots = await storage.getSlots(start, addDays(end, 1));
+      const [sY, sM, sD] = startDate.split("-").map(Number);
+      const [eY, eM, eD] = endDate.split("-").map(Number);
+
+      let currentDay = new Date(sY, sM - 1, sD, 12, 0, 0);
+      const endDay = new Date(eY, eM - 1, eD, 12, 0, 0);
+
+      const existingSlots = await storage.getSlots(
+        new Date(sY, sM - 1, sD, 0, 0, 0),
+        new Date(eY, eM - 1, eD, 23, 59, 59),
+      );
       const existingTimestamps = new Set(
         existingSlots.map((s) => s.startTime.getTime()),
       );
       const [startHour, startMinute] = startTime.split(":").map(Number);
       const [endHour, endMinute] = endTime.split(":").map(Number);
-      const weeklySchedule = await storage.getWeeklySchedule();
+      const weeklyScheduleList = await storage.getWeeklySchedule();
 
-      let currentDay = start;
       let count = 0;
 
-      while (currentDay <= end) {
+      while (currentDay <= endDay) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
-        if (holidays.has(dateStr)) {
-          currentDay = addDays(currentDay, 1);
-          continue;
-        }
-        const dayOfWeek = getDay(currentDay);
-        if (dayOfWeek !== 0) {
-          const fixedLessons = weeklySchedule.filter(
-            (l) => l.dayOfWeek === dayOfWeek,
-          );
-          let daySlotStart = setMinutes(
-            setHours(currentDay, startHour),
-            startMinute,
-          );
-          daySlotStart = setMilliseconds(setSeconds(daySlotStart, 0), 0);
+        const dayOfWeek = currentDay.getDay(); // 0 = niedziela, 1 = poniedziałek itd.
 
-          const daySlotEnd = setMinutes(
-            setHours(currentDay, endHour),
-            endMinute,
-          );
+        const fixedLessons = weeklyScheduleList.filter(
+          (l) => l.dayOfWeek === dayOfWeek,
+        );
 
-          while (daySlotStart < daySlotEnd) {
-            const slotEnd = addMinutes(daySlotStart, duration);
-            if (slotEnd > daySlotEnd) break;
+        let daySlotStart = createWarsawDateTime(dateStr, startTime);
+        const daySlotEnd = createWarsawDateTime(dateStr, endTime);
 
-            const { h: slotH, m: slotM } = getWarsawHourMinute(daySlotStart);
-            const slotStartMin = slotH * 60 + slotM;
-            const slotEndMin = slotStartMin + duration;
+        while (daySlotStart < daySlotEnd) {
+          const slotEnd = addMinutes(daySlotStart, duration);
+          if (slotEnd > daySlotEnd) break;
 
-            const isCollision = fixedLessons.some((lesson) => {
-              const [lh, lm] = lesson.startTime.split(":").map(Number);
-              const lessonStartMin = lh * 60 + lm;
-              const lessonEndMin = lessonStartMin + lesson.durationMinutes;
+          const { h: slotH, m: slotM } = getWarsawHourMinute(daySlotStart);
+          const slotStartMin = slotH * 60 + slotM;
+          const slotEndMin = slotStartMin + duration;
 
-              const extraTime =
-                lesson.locationType === "commute"
-                  ? lesson.travelMinutes || 0
-                  : 0;
-              const lessonBusyStart = lessonStartMin - extraTime;
+          const isCollision = fixedLessons.some((lesson) => {
+            const [lh, lm] = lesson.startTime.split(":").map(Number);
+            const lessonStartMin = lh * 60 + lm;
+            const lessonEndMin = lessonStartMin + lesson.durationMinutes;
 
-              return (
-                slotStartMin < lessonEndMin && slotEndMin > lessonBusyStart
-              );
+            const extraTime =
+              lesson.locationType === "commute" ? lesson.travelMinutes || 0 : 0;
+            const lessonBusyStart = lessonStartMin - extraTime;
+
+            return slotStartMin < lessonEndMin && slotEndMin > lessonBusyStart;
+          });
+
+          if (!isCollision && !existingTimestamps.has(daySlotStart.getTime())) {
+            await storage.createSlot({
+              startTime: daySlotStart,
+              endTime: slotEnd,
+              isBooked: false,
+              isPaid: false,
+              price: 100,
+              locationType: "onsite",
+              travelMinutes: 0,
             });
-
-            if (
-              !isCollision &&
-              !existingTimestamps.has(daySlotStart.getTime())
-            ) {
-              await storage.createSlot({
-                startTime: daySlotStart,
-                endTime: slotEnd,
-                isBooked: false,
-                isPaid: false,
-                locationType: "onsite",
-                travelMinutes: 0,
-              });
-              existingTimestamps.add(daySlotStart.getTime());
-              count++;
-            }
-            daySlotStart = slotEnd;
+            existingTimestamps.add(daySlotStart.getTime());
+            count++;
           }
+          daySlotStart = slotEnd;
         }
+
         currentDay = addDays(currentDay, 1);
       }
+
       res.status(201).json({ count });
     } catch (err) {
       console.error(err);
@@ -642,51 +631,38 @@ export async function registerRoutes(
     console.log("[GENERATOR] Start generowania z szablonu...");
     try {
       const { startDate, endDate } = generateFromTemplateSchema.parse(req.body);
-      const start = parseISO(startDate);
-      const end = parseISO(endDate);
-      const weeklySchedule = await storage.getWeeklySchedule();
+
+      // Bezpieczna iteracja po dniach kalendarzowych w południe (12:00)
+      const [sY, sM, sD] = startDate.split("-").map(Number);
+      const [eY, eM, eD] = endDate.split("-").map(Number);
+
+      let currentDay = new Date(sY, sM - 1, sD, 12, 0, 0);
+      const endDay = new Date(eY, eM - 1, eD, 12, 0, 0);
+
+      const weeklyScheduleList = await storage.getWeeklySchedule();
       console.log(
-        `[GENERATOR] Pobrano ${weeklySchedule.length} elementów szablonu.`,
+        `[GENERATOR] Pobrano ${weeklyScheduleList.length} elementów szablonu.`,
       );
 
-      const startYear = getYear(start);
-      const holidays = await getPublicHolidays(startYear);
-      if (getYear(end) !== startYear) {
-        const h2 = await getPublicHolidays(getYear(end));
-        h2.forEach((h) => holidays.add(h));
-      }
+      const existingSlots = await storage.getSlots(
+        new Date(sY, sM - 1, sD, 0, 0, 0),
+        new Date(eY, eM - 1, eD, 23, 59, 59),
+      );
 
-      const existingSlots = await storage.getSlots(start, addDays(end, 1));
-      let currentDay = start;
       let count = 0;
       let updatedCount = 0;
 
-      while (currentDay <= end) {
+      while (currentDay <= endDay) {
         const dateStr = format(currentDay, "yyyy-MM-dd");
-        if (holidays.has(dateStr)) {
-          currentDay = addDays(currentDay, 1);
-          continue;
-        }
-        const dayOfWeek = getDay(currentDay);
-        const dayTemplates = weeklySchedule.filter(
+        const dayOfWeek = currentDay.getDay(); // 0 = Niedziela, 1 = Poniedziałek, ... 6 = Sobota
+
+        const dayTemplates = weeklyScheduleList.filter(
           (t) => t.dayOfWeek === dayOfWeek,
         );
         const processedTimes = new Set<string>();
 
         for (const item of dayTemplates) {
-          const [hours, minutes] = item.startTime.split(":").map(Number);
-          let slotStart = new Date(currentDay);
-          slotStart.setHours(hours, minutes, 0, 0);
-          slotStart = setMilliseconds(slotStart, 0);
-
-          const { h: plH, m: plM } = getWarsawHourMinute(slotStart);
-          const actualMinutes = plH * 60 + plM;
-          const desiredMinutes = hours * 60 + minutes;
-          let diff = actualMinutes - desiredMinutes;
-          if (diff > 720) diff -= 1440;
-          if (diff < -720) diff += 1440;
-          slotStart = addMinutes(slotStart, -diff);
-
+          const slotStart = createWarsawDateTime(dateStr, item.startTime);
           const timeKey = slotStart.getTime().toString();
           if (processedTimes.has(timeKey)) continue;
           processedTimes.add(timeKey);
@@ -707,9 +683,9 @@ export async function registerRoutes(
             studentId: item.studentId,
             topic: topic,
             endTime: slotEnd,
-            price: item.price,
-            locationType: item.locationType,
-            travelMinutes: item.travelMinutes,
+            price: item.price || 100,
+            locationType: item.locationType || "onsite",
+            travelMinutes: item.travelMinutes || 0,
           };
 
           if (existingSlot) {
@@ -725,8 +701,10 @@ export async function registerRoutes(
             count++;
           }
         }
+
         currentDay = addDays(currentDay, 1);
       }
+
       console.log(
         `[GENERATOR] Zakończono. Nowe: ${count}, Zaktualizowane: ${updatedCount}`,
       );
@@ -740,6 +718,7 @@ export async function registerRoutes(
     }
   });
 
+  // --- BOOKING (REZERWACJA) ---
   app.post("/api/slots/:id/book", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
     const user = req.user as User;
@@ -761,7 +740,6 @@ export async function registerRoutes(
 
       const busyStart = addMinutes(baseStart, -travelBuffer);
       const busyEnd = addMinutes(baseStart, durationMinutes);
-
       const lessonEnd = addMinutes(baseStart, durationMinutes);
 
       const searchStart = addMinutes(busyStart, -180);
@@ -800,10 +778,12 @@ export async function registerRoutes(
         });
       }
 
+      const chosenTopic = topic && topic.trim() !== "" ? topic : "Matematyka";
+
       const updated = await storage.updateSlot(id, {
         isBooked: true,
         studentId: user.id,
-        topic: topic || "Matematyka",
+        topic: chosenTopic,
         endTime: lessonEnd,
         bookedAt: new Date(),
         locationType: locationType,
@@ -831,11 +811,7 @@ export async function registerRoutes(
         try {
           const warsawDate = getWarsawDate(new Date(slot.startTime));
           if (user.email)
-            await sendBookingConfirmation(
-              user.email,
-              warsawDate,
-              topic || "Matematyka",
-            );
+            await sendBookingConfirmation(user.email, warsawDate, chosenTopic);
           const allUsers = await storage.getAllUsers();
           const admin = allUsers.find((u) => u.role === "admin");
           if (admin && admin.email) {
@@ -843,13 +819,13 @@ export async function registerRoutes(
               admin.email,
               user.name,
               warsawDate,
-              topic || "Matematyka",
+              chosenTopic,
             );
           }
           const safeName = anonymizeName(user.name, user.id);
           await sendSafeTelegramAlert(
             warsawDate,
-            `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>`,
+            `🔔 <b>Nowa rezerwacja</b>\nUczeń: <b>${safeName}</b>\n📚 Temat: <b>${chosenTopic}</b>`,
           );
         } catch (bgError) {
           console.error("Background Error (Booking):", bgError);

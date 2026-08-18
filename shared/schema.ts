@@ -43,9 +43,9 @@ export const weeklySchedule = pgTable("weekly_schedule", {
   id: serial("id").primaryKey(),
   dayOfWeek: integer("day_of_week").notNull(),
   startTime: text("start_time").notNull(),
-  durationMinutes: integer("duration_minutes").notNull(),
+  durationMinutes: integer("duration_minutes").notNull().default(60),
   studentId: integer("student_id").references(() => users.id),
-  price: integer("price").notNull().default(0),
+  price: integer("price").notNull().default(100),
   locationType: text("location_type").default("onsite"),
   travelMinutes: integer("travel_minutes").default(0),
 });
@@ -78,6 +78,11 @@ export const insertUserSchema = createInsertSchema(users)
   })
   .extend({
     email: z.string().email("Nieprawidłowy format adresu email"),
+    defaultPrice: z.number().nullable().optional(),
+    phone: z.string().nullable().optional(),
+    address: z.string().nullable().optional(),
+    adminNotes: z.string().nullable().optional(),
+    role: z.string().optional(),
   });
 
 export const insertSlotSchema = createInsertSchema(slots, {
@@ -118,7 +123,7 @@ export const generateSlotsSchema = z.object({
   endDate: z.string(),
   startTime: z.string(),
   endTime: z.string(),
-  duration: z.number(),
+  duration: z.number().default(60),
 });
 
 export const generateFromTemplateSchema = z.object({
@@ -128,7 +133,7 @@ export const generateFromTemplateSchema = z.object({
 
 export const bookSlotSchema = z.object({
   topic: z.string().optional(),
-  durationMinutes: z.number().min(30).max(180).default(60),
+  durationMinutes: z.literal(60).default(60),
   locationType: z.enum(["onsite", "commute"]).default("onsite"),
 });
 

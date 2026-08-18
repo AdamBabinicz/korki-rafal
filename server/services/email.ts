@@ -16,7 +16,7 @@ const transporter = nodemailer.createTransport({
 export async function sendBookingConfirmation(
   to: string,
   date: Date,
-  topic: string = "Matematyka"
+  topic: string = "Matematyka",
 ) {
   if (!to || !to.includes("@")) {
     console.log("[EMAIL] Brak poprawnego adresu email, pomijam wysyłkę.");
@@ -26,18 +26,19 @@ export async function sendBookingConfirmation(
   const formattedDate = format(date, "EEEE, d MMMM yyyy 'o godzinie' HH:mm", {
     locale: pl,
   });
+  const lessonTopic = topic && topic.trim() !== "" ? topic : "Matematyka";
 
   const mailOptions = {
     from: `"MathMentor" <${process.env.EMAIL_USER}>`,
     to: to,
-    subject: "✅ Potwierdzenie rezerwacji - MathMentor",
+    subject: `✅ Potwierdzenie rezerwacji: ${lessonTopic} - MathMentor`,
     html: `
       <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #22c55e;">Potwierdzenie Rezerwacji</h2>
         <p>Cześć!</p>
         <p>Twoja lekcja została pomyślnie zarezerwowana.</p>
         <p><strong>Termin:</strong> ${formattedDate}</p>
-        <p><strong>Temat:</strong> ${topic}</p>
+        <p><strong>Temat:</strong> ${lessonTopic}</p>
         <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="font-size: 12px; color: #666;">Do zobaczenia na zajęciach!</p>
       </div>
@@ -53,42 +54,45 @@ export async function sendBookingConfirmation(
 }
 
 /**
- * Wysyła powiadomienie do Admina o nowej rezerwacji
+ * Wysyła powiadomienie do Admina o nowej rezerwacji z uwzględnieniem tematu lekcji
  */
 export async function sendNewBookingNotificationToAdmin(
   adminEmail: string,
   studentName: string,
   date: Date,
-  topic: string
+  topic: string = "Matematyka",
 ) {
   if (!adminEmail || !adminEmail.includes("@")) return;
 
   const formattedDate = format(date, "EEEE, d MMMM yyyy 'o godzinie' HH:mm", {
     locale: pl,
   });
+  const lessonTopic = topic && topic.trim() !== "" ? topic : "Matematyka";
 
   const mailOptions = {
     from: `"MathMentor System" <${process.env.EMAIL_USER}>`,
     to: adminEmail,
-    subject: `📅 Nowa rezerwacja: ${studentName}`,
+    subject: `📅 Nowa rezerwacja: ${studentName} – ${lessonTopic}`,
     html: `
       <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #3b82f6;">Nowa Rezerwacja w Kalendarzu</h2>
         <p>Uczeń <strong>${studentName}</strong> właśnie zarezerwował termin.</p>
 
-        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0;">
+        <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #3b82f6;">
           <p style="margin: 5px 0;">📅 <strong>Kiedy:</strong> ${formattedDate}</p>
-          <p style="margin: 5px 0;">📚 <strong>Temat:</strong> ${topic}</p>
+          <p style="margin: 5px 0;">📚 <strong>Temat zajęć:</strong> <span style="font-weight: bold; color: #1d4ed8;">${lessonTopic}</span></p>
         </div>
 
-        <p><a href="https://mathmentor.pl/admin" style="color: #3b82f6; text-decoration: none;">Przejdź do Panelu Admina</a></p>
+        <p><a href="https://mathmentor.pl/admin" style="color: #3b82f6; text-decoration: none; font-weight: bold;">Przejdź do Panelu Admina</a></p>
       </div>
     `,
   };
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log(`[EMAIL] Powiadomienie dla Admina wysłane.`);
+    console.log(
+      `[EMAIL] Powiadomienie dla Admina wysłane (Temat: ${lessonTopic}).`,
+    );
   } catch (error) {
     console.error("[EMAIL] Błąd wysyłania powiadomienia do admina:", error);
   }
@@ -100,7 +104,7 @@ export async function sendNewBookingNotificationToAdmin(
 export async function broadcastFreeSlot(
   bccList: string[],
   date: Date,
-  adminEmail?: string
+  adminEmail?: string,
 ) {
   if (bccList.length === 0 && !adminEmail) return;
 
@@ -132,7 +136,7 @@ export async function broadcastFreeSlot(
   try {
     await transporter.sendMail(mailOptions);
     console.log(
-      `[EMAIL] Broadcast wysłany do ${bccList.length} uczniów + admin.`
+      `[EMAIL] Broadcast wysłany do ${bccList.length} uczniów + admin.`,
     );
   } catch (error) {
     console.error("[EMAIL] Błąd broadcastu:", error);
@@ -145,7 +149,7 @@ export async function broadcastFreeSlot(
 export async function sendCancellationConfirmation(
   to: string,
   date: Date,
-  studentName: string
+  studentName: string,
 ) {
   if (!to || !to.includes("@")) return;
 
@@ -186,7 +190,7 @@ export async function sendCancellationConfirmation(
 export async function sendCancellationNotificationToAdmin(
   adminEmail: string,
   studentName: string,
-  date: Date
+  date: Date,
 ) {
   if (!adminEmail || !adminEmail.includes("@")) return;
 
@@ -222,13 +226,13 @@ export async function sendCancellationNotificationToAdmin(
 }
 
 /**
- * NOWE: Powiadomienie dla Admina o zapisie na listę rezerwową
+ * Powiadomienie dla Admina o zapisie na listę rezerwową
  */
 export async function sendWaitlistNotificationToAdmin(
   adminEmail: string,
   studentName: string,
   date: Date,
-  note?: string | null
+  note?: string | null,
 ) {
   if (!adminEmail || !adminEmail.includes("@")) return;
 
