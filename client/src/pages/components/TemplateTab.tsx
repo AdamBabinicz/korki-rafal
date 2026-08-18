@@ -278,30 +278,33 @@ export default function TemplateTab() {
               {t("admin.generate_from_template")}
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>{t("admin.generate_title")}</DialogTitle>
               <DialogDescription>{t("admin.generate_desc")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
+              {/* RESPAPONSYWNY UKŁAD: 1 kolumna na mobile, 2 na desktopie */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <Label>{t("admin.start_date")}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-start text-left font-normal"
+                        className="w-full justify-start text-left font-normal h-10 px-3 overflow-hidden"
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {genRange.start
-                          ? format(genRange.start, "PPP", {
-                              locale: dateLocale,
-                            })
-                          : "Data"}
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {genRange.start
+                            ? format(genRange.start, "d MMMM yyyy", {
+                                locale: dateLocale,
+                              })
+                            : "Data"}
+                        </span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={genRange.start}
@@ -314,21 +317,25 @@ export default function TemplateTab() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label>{t("admin.end_date")}</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-start text-left font-normal"
+                        className="w-full justify-start text-left font-normal h-10 px-3 overflow-hidden"
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {genRange.end
-                          ? format(genRange.end, "PPP", { locale: dateLocale })
-                          : "Data"}
+                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                        <span className="truncate">
+                          {genRange.end
+                            ? format(genRange.end, "d MMMM yyyy", {
+                                locale: dateLocale,
+                              })
+                            : "Data"}
+                        </span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={genRange.end}
@@ -346,6 +353,7 @@ export default function TemplateTab() {
             <DialogFooter>
               <Button
                 type="button"
+                className="w-full sm:w-auto"
                 onClick={() =>
                   generateFromTemplateMutation.mutate({
                     startDate: format(genRange.start, "yyyy-MM-dd"),
