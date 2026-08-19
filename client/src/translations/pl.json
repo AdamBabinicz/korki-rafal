@@ -10,20 +10,20 @@
     "logout": "Wyloguj"
   },
   "hero": {
-    "title": "Zrozum Matematykę",
-    "subtitle": "Indywidualne korepetycje dopasowane do Twojego tempa nauki.",
+    "title": "Korepetycje z Matematyki i Lekcje",
+    "subtitle": "Indywidualne korepetycje z matematyki oraz profesjonalne lekcje dopasowane do Twojego tempa nauki.",
     "cta": "Zarezerwuj Lekcję",
     "cta_aria": "Zarezerwuj lekcję - Zarejestruj się w MathMentor",
     "image_alt": "Rafał Podymniak - Korepetytor matematyki"
   },
   "features": {
-    "title": "Dlaczego MathMentor?",
-    "scheduling": "Elastyczny Graf",
-    "scheduling_desc": "Wybierz termin, który Ci pasuje z dostępnych slotów.",
-    "progress": "Śledzenie Postępów",
-    "progress_desc": "Dostęp do historii lekcji i materiałów.",
-    "flexible": "Elastyczne odwoływanie",
-    "flexible_desc": "Anuluj zajęcia do 24 godzin przed ich rozpoczęciem."
+    "title": "Dlaczego korepetycje w MathMentor?",
+    "scheduling": "Elastyczny Graf Lekcji",
+    "scheduling_desc": "Wybierz dogodny termin na korepetycje z matematyki z dostępnych slotów.",
+    "progress": "Postępy w Nauce Matematyki",
+    "progress_desc": "Dostęp do historii lekcji matematyki, zagadnień i materiałów dydaktycznych.",
+    "flexible": "Elastyczne Odwoływanie Lekcji",
+    "flexible_desc": "Anuluj korepetycje do 24 godzin przed rozpoczęciem zajęć bez opłat."
   },
   "dashboard": {
     "welcome": "Cześć, {{name}}!",

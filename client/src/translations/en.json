@@ -10,20 +10,20 @@
     "logout": "Log out"
   },
   "hero": {
-    "title": "Master Mathematics",
-    "subtitle": "Personalized tutoring tailored to your learning pace.",
+    "title": "Mathematics Tutoring and Lessons",
+    "subtitle": "Personalized mathematics tutoring and professional lessons tailored to your learning pace.",
     "cta": "Book a Lesson",
     "cta_aria": "Book a lesson - Register in MathMentor",
     "image_alt": "Rafał Podymniak - Mathematics Tutor"
   },
   "features": {
-    "title": "Why MathMentor?",
-    "scheduling": "Flexible Scheduling",
-    "scheduling_desc": "Choose a time slot that works best for you.",
-    "progress": "Progress Tracking",
-    "progress_desc": "Access lesson history and materials.",
-    "flexible": "Flexible Cancellation",
-    "flexible_desc": "Cancel lessons up to 24 hours in advance."
+    "title": "Why Tutoring with MathMentor?",
+    "scheduling": "Flexible Lesson Schedule",
+    "scheduling_desc": "Choose a convenient time slot for mathematics tutoring from available slots.",
+    "progress": "Mathematics Learning Progress",
+    "progress_desc": "Access lesson history, math topics, and comprehensive study materials.",
+    "flexible": "Flexible Lesson Cancellation",
+    "flexible_desc": "Cancel tutoring sessions up to 24 hours in advance free of charge."
   },
   "dashboard": {
     "welcome": "Hi, {{name}}!",
