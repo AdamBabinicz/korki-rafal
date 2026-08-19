@@ -12,10 +12,36 @@
       content="Zrozum matematykę z MathMentor! Oferujemy indywidualne podejście, przygotowanie do matury i egzaminu ósmoklasisty. Zarezerwuj termin online już teraz."
     />
 
-    <!-- COOKIE SCRIPT (Consent Mode v2) - Musi być przed GTM! -->
+    <!-- Resource Hints: Szybkie połączenie z domenami zewnętrznymi -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.cookie-script.com" />
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://cdn.cookie-script.com" />
+    <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+
+    <!-- Preload Hero Image dla natychmiastowego FCP / LCP -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/avif"
+      href="/rafalpo.avif"
+      fetchpriority="high"
+    />
+
+    <!-- Zoptymalizowany import używanych fontów z font-display: swap -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@400..700&family=Plus+Jakarta+Sans:wght@400..800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- COOKIE SCRIPT (Consent Mode v2) - Asynchroniczny z zachowaniem kolejności dla GTM -->
     <script
       type="text/javascript"
       charset="UTF-8"
+      async
       src="//cdn.cookie-script.com/s/ce8b1c3d8472393e64e380dc02bc54df.js"
     ></script>
 
@@ -33,6 +59,7 @@
       })(window, document, "script", "dataLayer", "GTM-TM6S79DD");
     </script>
     <!-- End Google Tag Manager -->
+
     <style>
       .bot-content {
         padding: 20px;
@@ -43,8 +70,8 @@
         margin: 0 auto;
       }
     </style>
+
     <!-- SCHEMA.ORG JSON-LD (Identity Schema Fix) -->
-    <!-- Tutaj zostawiamy email poprawny, bo to dane dla Google, nie do wyświetlania -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -53,15 +80,13 @@
         "alternateName": "Raf-Edu",
         "url": "https://mathmentor-app.onrender.com/",
         "logo": "https://mathmentor-app.onrender.com/favicon.png",
-        "image": "https://mathmentor-app.onrender.com/rafalp.avif",
+        "image": "https://mathmentor-app.onrender.com/rafalpo.avif",
         "description": "Indywidualne korepetycje z matematyki dopasowane do Twojego tempa nauki. Przygotowanie do matury i egzaminów.",
-
         "address": {
           "@type": "PostalAddress",
           "addressLocality": "Polska",
           "addressCountry": "PL"
         },
-
         "founder": {
           "@type": "Person",
           "name": "Rafał Podymniak"
@@ -72,7 +97,7 @@
           "contactType": "customer service",
           "email": "rafal.podymniak97@gmail.com",
           "areaServed": "PL",
-          "availableLanguage": "Polish"
+          "availableLanguage": ["Polish", "English"]
         },
         "sameAs": [
           "https://www.facebook.com/profile.php?id=100094791384674",
@@ -90,6 +115,7 @@
         }
       }
     </script>
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:locale" content="pl_PL" />
@@ -103,7 +129,6 @@
       property="og:description"
       content="Zrozum matematykę z MathMentor! Oferujemy indywidualne podejście, przygotowanie do matury i egzaminu ósmoklasisty. Zarezerwuj termin online już teraz."
     />
-
     <meta
       property="og:image"
       content="https://mathmentor-app.onrender.com/2.jpg"
@@ -141,30 +166,22 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fira+Code:wght@300..700&family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&family=IBM+Plex+Mono:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=IBM+Plex+Sans:ital,wght@0,100..700;1,100..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Outfit:wght@100..900&family=Oxanium:wght@200..800&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&family=Space+Grotesk:wght@300..700&family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap"
-      rel="stylesheet"
-    />
   </head>
   <body>
     <!-- Google Tag Manager (noscript) -->
-    <noscript
-      ><iframe
+    <noscript>
+      <iframe
         src="https://www.googletagmanager.com/ns.html?id=GTM-TM6S79DD"
         height="0"
         width="0"
-      ></iframe
-    ></noscript>
+        style="display: none; visibility: hidden"
+      ></iframe>
+    </noscript>
     <!-- End Google Tag Manager (noscript) -->
-    <!-- LLM/Bot Static Content Fallback (Rendered Content Fix) -->
-    <!-- Ta sekcja jest niewidoczna dla użytkownika z włączonym JS, ale widoczna dla robotów i LLM -->
+
+    <!-- LLM/Bot Static Content Fallback -->
     <noscript>
       <div class="bot-content">
         <h1>MathMentor - Zrozum Matematykę</h1>
@@ -193,12 +210,12 @@
         </p>
         <address>
           Telefon: +48 516 283 896<br />
-          <!-- E-mail Obfuscated for Spam Protection (Bots see [at], Humans see logic) -->
           Email: rafal.podymniak97 [małpa] gmail.com
         </address>
         <p>Copyright © 2026 MathMentor. Designed for Education.</p>
       </div>
     </noscript>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
