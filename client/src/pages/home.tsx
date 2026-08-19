@@ -2,19 +2,17 @@ import { Link } from "wouter";
 import { CheckCircle2, Sigma, CalendarRange } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const { t } = useTranslation();
 
-  // Wspólne style dla przycisków
   const baseBtnStyles =
     "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50";
 
   return (
     <div className="min-h-screen flex flex-col bg-background transition-colors duration-300 pt-16">
       <main className="flex-1 flex items-center relative overflow-hidden">
-        {/* TŁO: Zmniejszono opacity z /10 na /5, aby poprawić kontrast tekstu na wierzchu */}
+        {/* TŁO */}
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-orange-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
 
@@ -32,7 +30,6 @@ export default function HomePage() {
               </span>
             </h1>
 
-            {/* Zmieniono text-muted-foreground na text-foreground/80 dla lepszego kontrastu */}
             <p className="text-xl text-foreground/80 max-w-lg leading-relaxed font-medium">
               {t("hero.subtitle")}
             </p>
@@ -42,10 +39,11 @@ export default function HomePage() {
                 href="/register"
                 className={cn(
                   baseBtnStyles,
-                  // Zmieniono bg-orange-600 na bg-orange-700 dla kontrastu z białym tekstem
-                  "h-14 px-8 text-lg shadow-xl shadow-primary/10 bg-orange-700 hover:bg-orange-800 text-white font-bold cursor-pointer w-full sm:w-auto min-w-[44px] min-h-[44px]"
+                  "h-14 px-8 text-lg shadow-xl shadow-primary/10 bg-orange-700 hover:bg-orange-800 text-white font-bold cursor-pointer w-full sm:w-auto min-w-[44px] min-h-[44px]",
                 )}
-                aria-label={t("hero.cta") + " - Zarejestruj się w MathMentor"}
+                aria-label={t("hero.cta_aria", {
+                  defaultValue: `${t("hero.cta")} - MathMentor`,
+                })}
               >
                 {t("hero.cta")}
               </Link>
@@ -54,10 +52,11 @@ export default function HomePage() {
                 href="/login"
                 className={cn(
                   baseBtnStyles,
-                  // Ciemniejszy border i tekst dla przycisku Log In
-                  "h-14 px-8 text-lg border border-primary/50 bg-background hover:bg-accent hover:text-accent-foreground text-primary font-semibold hover:bg-primary/5 cursor-pointer w-full sm:w-auto min-w-[44px] min-h-[44px]"
+                  "h-14 px-8 text-lg border border-primary/50 bg-background hover:bg-accent hover:text-accent-foreground text-primary font-semibold hover:bg-primary/5 cursor-pointer w-full sm:w-auto min-w-[44px] min-h-[44px]",
                 )}
-                aria-label={t("nav.login") + " - Zaloguj się do panelu"}
+                aria-label={t("nav.login_aria", {
+                  defaultValue: `${t("nav.login")} - MathMentor`,
+                })}
               >
                 {t("nav.login")}
               </Link>
@@ -106,17 +105,30 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Right Column: Image */}
+          {/* Right Column: Responsive Image */}
           <div className="block relative animate-in fade-in slide-in-from-right-4 duration-1000 delay-200 mt-8 lg:mt-0">
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-orange-500/20 rounded-3xl blur-2xl transform rotate-6 scale-95" />
-            <img
-              src="/rafalpo.avif"
-              alt="Rafał Podymniak - Korepetytor matematyki"
-              className="relative rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 object-cover h-[350px] lg:h-[600px] w-full"
-              // @ts-ignore - Ignorujemy błąd TS, aby użyć poprawnego atrybutu HTML (małe litery)
-              fetchpriority="high"
-              loading="eager"
-            />
+            <picture>
+              <source
+                type="image/avif"
+                srcSet="/rafalp.avif 400w, /rafalpo.avif 800w, /rafa.avif 1200w"
+                sizes="(min-width: 1024px) 600px, 100vw"
+              />
+              <img
+                src="/rafalpo.avif"
+                srcSet="/rafalp.avif 400w, /rafalpo.avif 800w, /rafa.avif 1200w"
+                sizes="(min-width: 1024px) 600px, 100vw"
+                width={600}
+                height={600}
+                alt={t("hero.image_alt", {
+                  defaultValue: "Rafał Podymniak - Korepetytor matematyki",
+                })}
+                className="relative rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 object-cover h-[350px] lg:h-[600px] w-full"
+                fetchPriority="high"
+                loading="eager"
+                decoding="async"
+              />
+            </picture>
           </div>
         </div>
       </main>

@@ -2,6 +2,7 @@
   "nav": {
     "home": "Strona główna",
     "login": "Zaloguj się",
+    "login_aria": "Zaloguj się do panelu ucznia i korepetytora MathMentor",
     "register": "Zarejestruj",
     "booking": "Kalendarz",
     "dashboard": "Pulpit",
@@ -11,7 +12,9 @@
   "hero": {
     "title": "Zrozum Matematykę",
     "subtitle": "Indywidualne korepetycje dopasowane do Twojego tempa nauki.",
-    "cta": "Zarezerwuj Lekcję"
+    "cta": "Zarezerwuj Lekcję",
+    "cta_aria": "Zarezerwuj lekcję - Zarejestruj się w MathMentor",
+    "image_alt": "Rafał Podymniak - Korepetytor matematyki"
   },
   "features": {
     "title": "Dlaczego MathMentor?",

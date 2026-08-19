@@ -2,6 +2,7 @@
   "nav": {
     "home": "Home",
     "login": "Log in",
+    "login_aria": "Log in to MathMentor student and teacher panel",
     "register": "Sign up",
     "booking": "Calendar",
     "dashboard": "Dashboard",
@@ -11,7 +12,9 @@
   "hero": {
     "title": "Master Mathematics",
     "subtitle": "Personalized tutoring tailored to your learning pace.",
-    "cta": "Book a Lesson"
+    "cta": "Book a Lesson",
+    "cta_aria": "Book a lesson - Register in MathMentor",
+    "image_alt": "Rafał Podymniak - Mathematics Tutor"
   },
   "features": {
     "title": "Why MathMentor?",
