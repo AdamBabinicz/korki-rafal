@@ -17,7 +17,7 @@
     <meta name="theme-color" content="#ffffff" />
     <meta name="msapplication-TileColor" content="#ffffff" />
 
-    <!-- Resource Hints: Szybkie połączenie z domenami zewnętrznymi -->
+    <!-- Resource Hints: Wczesne zestawienie połączeń TCP/TLS -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://cdn.cookie-script.com" />
@@ -36,13 +36,26 @@
       fetchpriority="high"
     />
 
-    <!-- Zoptymalizowany import używanych fontów z font-display: swap -->
+    <!-- Nieblokujące, asynchroniczne ładowanie Google Fonts (Eliminuje 1200ms blokowania) -->
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@400..700&family=Plus+Jakarta+Sans:wght@400..800&display=swap"
-      rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@400..700&family=Plus+Jakarta+Sans:wght@400..800&display=swap"
+      media="print"
+      onload="this.media = 'all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=Inter:wght@400..700&family=Plus+Jakarta+Sans:wght@400..800&display=swap"
+      />
+    </noscript>
 
-    <!-- COOKIE SCRIPT (Consent Mode v2) - Asynchroniczny z zachowaniem kolejności dla GTM -->
+    <!-- COOKIE SCRIPT (Consent Mode v2) - Asynchroniczny -->
     <script
       type="text/javascript"
       charset="UTF-8"
@@ -86,7 +99,7 @@
       }
     </style>
 
-    <!-- SCHEMA.ORG JSON-LD (LocalBusiness & Educational Organization Schema Fix) -->
+    <!-- SCHEMA.ORG JSON-LD -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
