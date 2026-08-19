@@ -11,9 +11,12 @@ import { ScrollRestoration } from "@/components/scroll-restoration";
 import { ProtectedRoute } from "@/components/protected-route";
 import { Loader2, Download, Share, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
-// Importy stron
-const HomePage = lazy(() => import("@/pages/home"));
+// Strona główna zaimportowana bezpośrednio dla natychmiastowego renderu (Zero CLS na wejściu)
+import HomePage from "@/pages/home";
+
+// Pozostałe podstrony ładowane asynchronicznie (Lazy Loading)
 const LoginPage = lazy(() => import("@/pages/login"));
 const RegisterPage = lazy(() => import("@/pages/register"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
@@ -25,32 +28,30 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center min-h-[60vh] w-full">
+    <div className="flex items-center justify-center min-h-[calc(100vh-16rem)] w-full">
       <Loader2 className="h-10 w-10 animate-spin text-primary" />
     </div>
   );
 }
 
-// --- KOMPONENT: PRZYCISK INSTALACJI (FAB) ---
+// --- KOMPONENT: PRZYCISK INSTALACJI PWA (FAB) ---
 function PwaInstallButton() {
+  const { t } = useTranslation();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIosHint, setShowIosHint] = useState(false);
 
   useEffect(() => {
-    // 1. Wykrywanie iOS
     const userAgent = window.navigator.userAgent.toLowerCase();
     const ios = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(ios);
 
-    // 2. Sprawdź czy już zainstalowana
     const isInStandaloneMode = window.matchMedia(
-      "(display-mode: standalone)"
+      "(display-mode: standalone)",
     ).matches;
     if (isInStandaloneMode) return;
 
-    // 3. Android/PC - nasłuchiwanie zdarzenia
     const handler = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -59,7 +60,6 @@ function PwaInstallButton() {
 
     window.addEventListener("beforeinstallprompt", handler);
 
-    // 4. iOS - pokazujemy przycisk zawsze (jeśli nie zainstalowane)
     if (ios && !isInStandaloneMode) {
       setIsVisible(true);
     }
@@ -71,10 +71,8 @@ function PwaInstallButton() {
 
   const handleClick = async () => {
     if (isIOS) {
-      // Na iOS przełączamy widoczność dymka z instrukcją
       setShowIosHint(!showIosHint);
     } else if (deferredPrompt) {
-      // Android/PC - wywołujemy instalację
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === "accepted") {
@@ -87,9 +85,7 @@ function PwaInstallButton() {
   if (!isVisible) return null;
 
   return (
-    // ZMIANA: right-8 (32px) - to standardowy margines dla przycisków ScrollToTop.
-    // Dzięki temu będą idealnie w jednej osi pionowej.
-    <div className="fixed bottom-24 right-8 z-50 flex flex-col items-end gap-2 animate-in fade-in zoom-in duration-300">
+    <div className="fixed bottom-24 right-8 z-40 flex flex-col items-end gap-2 animate-in fade-in duration-300 pointer-events-auto">
       {/* Dymek z instrukcją dla iOS */}
       {showIosHint && isIOS && (
         <div className="bg-popover text-popover-foreground p-4 rounded-lg shadow-xl border border-border max-w-[250px] text-sm relative mb-2 mr-2">
@@ -98,6 +94,7 @@ function PwaInstallButton() {
             size="icon"
             className="absolute -top-2 -right-2 h-6 w-6 bg-background rounded-full border shadow-sm"
             onClick={() => setShowIosHint(false)}
+            aria-label={t("common.cancel", { defaultValue: "Zamknij" })}
           >
             <X className="h-3 w-3" />
           </Button>
@@ -114,17 +111,20 @@ function PwaInstallButton() {
         </div>
       )}
 
-      {/* Główny przycisk */}
-      {/* h-12 w-12 (48px) - identyczny rozmiar jak duży przycisk scroll */}
-      {/* Usunięto border, aby optycznie nie był "grubszy" od przycisku poniżej */}
+      {/* Główny przycisk PWA */}
       <Button
         onClick={handleClick}
         size="icon"
         className="h-12 w-12 rounded-full shadow-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-transform hover:scale-105 active:scale-95"
-        title="Pobierz aplikację"
+        title={t("common.install_app", {
+          defaultValue: "Pobierz aplikację MathMentor",
+        })}
+        aria-label={t("common.install_app", {
+          defaultValue: "Zainstaluj aplikację MathMentor",
+        })}
       >
         <Download className="h-6 w-6" />
-        <span className="sr-only">Zainstaluj aplikację</span>
+        <span className="sr-only">Zainstaluj aplikację MathMentor</span>
       </Button>
     </div>
   );
@@ -136,7 +136,7 @@ function Router() {
       <ScrollRestoration />
       <NavBar />
 
-      <main className="flex-1 container mx-auto px-4 md:px-8 mt-16 max-w-7xl">
+      <main className="flex-1 w-full min-h-[calc(100vh-4rem)] flex flex-col">
         <Suspense fallback={<PageLoader />}>
           <Switch>
             <Route path="/" component={HomePage} />
@@ -171,7 +171,6 @@ function App() {
       <TooltipProvider>
         <Router />
         <Toaster />
-        {/* Przycisk instalacji */}
         <PwaInstallButton />
       </TooltipProvider>
     </QueryClientProvider>
