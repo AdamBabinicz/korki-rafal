@@ -69,6 +69,16 @@
         max-width: 800px;
         margin: 0 auto;
       }
+      .bot-title {
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 12px;
+      }
+      .bot-subtitle {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 16px;
+      }
     </style>
 
     <!-- SCHEMA.ORG JSON-LD (Identity Schema Fix) -->
@@ -181,11 +191,13 @@
     </noscript>
     <!-- End Google Tag Manager (noscript) -->
 
-    <!-- LLM/Bot Static Content Fallback -->
+    <!-- LLM/Bot Static Content Fallback (Używa klas CSS zamiast tagu H1/H2, zachowując 1 unikalny H1 na stronę) -->
     <noscript>
       <div class="bot-content">
-        <h1>MathMentor - Zrozum Matematykę</h1>
-        <h2>Indywidualne korepetycje dopasowane do Twojego tempa nauki.</h2>
+        <p class="bot-title">MathMentor - Zrozum Matematykę</p>
+        <p class="bot-subtitle">
+          Indywidualne korepetycje dopasowane do Twojego tempa nauki.
+        </p>
         <p>
           Rafał Podymniak zaprasza na profesjonalne lekcje matematyki i
           rezerwacje online. Oferujemy:
