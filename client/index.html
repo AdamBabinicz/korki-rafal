@@ -82,47 +82,74 @@
       }
     </style>
 
-    <!-- SCHEMA.ORG JSON-LD (Identity Schema Fix) -->
+    <!-- SCHEMA.ORG JSON-LD (LocalBusiness & Educational Organization Schema Fix) -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": ["EducationalOrganization", "LocalBusiness"],
-        "name": "MathMentor",
-        "alternateName": "Raf-Edu",
+        "@type": "LocalBusiness",
+        "@id": "https://mathmentor-app.onrender.com/#localbusiness",
+        "name": "MathMentor - Korepetycje z Matematyki Rafał Podymniak",
+        "alternateName": ["MathMentor", "Raf-Edu"],
         "url": "https://mathmentor-app.onrender.com/",
         "logo": "https://mathmentor-app.onrender.com/favicon.png",
         "image": "https://mathmentor-app.onrender.com/rafalpo.avif",
-        "description": "MathMentor oferuje profesjonalne korepetycje z matematyki i indywidualne lekcje. Przygotowanie do matury oraz egzaminu.",
+        "description": "MathMentor oferuje profesjonalne korepetycje z matematyki i indywidualne lekcje. Przygotowanie do matury oraz egzaminu ósmoklasisty.",
+        "telephone": "+48 516 283 896",
+        "email": "rafal.podymniak97@gmail.com",
+        "priceRange": "100 PLN",
+        "currenciesAccepted": "PLN",
+        "paymentAccepted": "Cash, Bank Transfer, BLIK",
         "address": {
           "@type": "PostalAddress",
-          "addressLocality": "Polska",
+          "addressLocality": "Gdańsk",
+          "addressRegion": "Pomorskie",
           "addressCountry": "PL"
         },
+        "geo": {
+          "@type": "GeoCoordinates",
+          "latitude": "54.3520",
+          "longitude": "18.6466"
+        },
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "opens": "07:00",
+            "closes": "22:00"
+          }
+        ],
         "founder": {
           "@type": "Person",
           "name": "Rafał Podymniak"
-        },
-        "contactPoint": {
-          "@type": "ContactPoint",
-          "telephone": "+48 516 283 896",
-          "contactType": "customer service",
-          "email": "rafal.podymniak97@gmail.com",
-          "areaServed": "PL",
-          "availableLanguage": ["Polish", "English"]
         },
         "sameAs": [
           "https://www.facebook.com/profile.php?id=100094791384674",
           "https://korepetycje.netlify.app/"
         ],
-        "makesOffer": {
-          "@type": "Offer",
-          "price": "100.00",
-          "priceCurrency": "PLN",
-          "availability": "https://schema.org/InStock",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "Korepetycje z matematyki"
-          }
+        "hasOfferCatalog": {
+          "@type": "OfferCatalog",
+          "name": "Usługi Edukacyjne Matematyka",
+          "itemListElement": [
+            {
+              "@type": "Offer",
+              "itemOffered": {
+                "@type": "Service",
+                "name": "Indywidualne Korepetycje z Matematyki (60 min)",
+                "description": "Jednostka lekcyjna 60 minut przygotowująca do matury i egzaminu ósmoklasisty."
+              },
+              "price": "100.00",
+              "priceCurrency": "PLN",
+              "availability": "https://schema.org/InStock"
+            }
+          ]
         }
       }
     </script>
@@ -191,7 +218,7 @@
     </noscript>
     <!-- End Google Tag Manager (noscript) -->
 
-    <!-- LLM/Bot Static Content Fallback (Keyword rich) -->
+    <!-- LLM/Bot Static Content Fallback -->
     <noscript>
       <div class="bot-content">
         <p class="bot-title">MathMentor - Korepetycje z Matematyki i Lekcje</p>
