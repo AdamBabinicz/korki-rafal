@@ -1,0 +1,39 @@
+# MathMentor – Profesjonalne Korepetycje z Matematyki Online i Stacjonarnie
+
+> MathMentor (https://mathmentor-app.onrender.com) to nowoczesna platforma rezerwacji indywidualnych korepetycji z matematyki na każdym poziomie edukacji: szkoła podstawowa, egzamin ósmoklasisty, szkoła średnia oraz matura (poziom podstawowy i rozszerzony).
+
+## O projekcie i korepetytorze
+MathMentor oferuje skuteczne, spersonalizowane lekcje matematyki prowadzone przez doświadczonego korepetytora. System umożliwia uczniom bezpośredni podgląd wolnych terminów w czasie rzeczywistym oraz błyskawiczną rezerwację zajęć bez zbędnej korespondencji.
+
+- **Adres strony:** https://mathmentor-app.onrender.com
+- **Języki:** Polski (PL), Angielski (EN)
+- **Grupa docelowa:** Uczniowie szkół podstawowych, maturzyści, studenci, osoby poprawiające egzaminy.
+
+## Oferta i Cennik
+- **Cena bazowa:** 100 PLN / lekcja (standardowy czas trwania: 60 minut).
+- **Format zajęć:**
+  - Lekcje stacjonarne / z dojazdem do ucznia.
+  - Lekcje online (wygodna forma zdalna).
+- **Zakres materiału:**
+  - Przygotowanie do egzaminu ósmoklasisty.
+  - Przygotowanie do matury podstawowej i rozszerzonej (Formuła 2015 oraz 2023).
+  - Bieżący materiał szkolny (nadrabianie zaległości, przygotowanie do sprawdzianów i kartkówek).
+  - Pomoc w zadaniach domowych i przygotowanie do konkursów matematycznych.
+
+## Zasady Rezerwacji i Regulamin
+- **Długość slotu:** Standardowa jednostka lekcyjna wynosi 60 minut.
+- **Rezerwacja:** Wybór wolnego terminu w kalendarzu, wskazanie tematu lekcji oraz preferowanej formy spotkania.
+- **Odwoływanie zajęć:**
+  - Standardowe bezpłatne anulowanie rezerwacji do 24 godzin przed rozpoczęciem zajęć.
+  - Okres ochronny (Grace Period): możliwość anulowania do 30 minut od momentu złożenia rezerwacji w przypadku pomyłki.
+- **Lista rezerwowa (Waitlist):** Możliwość zapisu na listę oczekujących na wybrany dzień w przypadku braku wolnych slotów.
+- **Dostępność:** Kalendarz obejmuje 7 dni w tygodniu (od poniedziałku do niedzieli, włącznie z wybranymi dniami świątecznymi).
+
+## Kluczowe Funkcjonalności Platformy
+- **Interaktywny Kalendarz:** Podgląd wolnych i zajętych terminów w czasie rzeczywistym.
+- **Powiadomienia E-mail & Telegram:** Natychmiastowe potwierdzenia rezerwacji, przypomnienia oraz informacje o zmianie statusu lekcji.
+- **Panel Ucznia:** Historia rezerwacji, nadchodzące lekcje oraz zarządzanie kontem.
+- **Panel Nauczyciela (Admin):** Generator szablonów tygodniowych, zarządzanie bazą uczniów, rozliczenia oraz automatyczne uwzględnianie czasów dojazdu (commute).
+
+## Bezpieczeństwo i Prywatność
+Platforma spełnia rygorystyczne standardy ochrony danych osobowych (RODO/GDPR) oraz korzysta z mechanizmu Google Consent Mode v2 i bezpiecznego szyfrowania sesji.
