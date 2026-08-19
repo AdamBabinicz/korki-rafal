@@ -14,7 +14,6 @@ import {
 export function Footer() {
   const { t, i18n } = useTranslation();
 
-  // --- NAPRAWA BRAKU ODŚWIEŻANIA ---
   const [currentLang, setCurrentLang] = useState(i18n.language);
 
   useEffect(() => {
@@ -28,21 +27,20 @@ export function Footer() {
   }, [i18n]);
 
   const isPL = currentLang?.startsWith("pl");
-  // ---------------------------------
 
   const startYear = 2026;
   const currentYear = new Date().getFullYear();
   const displayDate =
     currentYear > startYear ? `${startYear} - ${currentYear}` : `${startYear}`;
 
-  // --- LOGIKA ANTY-SPAM ---
-  // 1. Dane trzymamy w osobnych kawałkach
+  // Logika anty-spam
   const userPart = "rafal.podymniak97";
   const domainPart = "gmail.com";
 
-  // 2. Funkcja, która skleja maila dopiero gdy użytkownik NAJEŻDŻA myszką lub KLIKA
   const handleEmailInteraction = (
-    e: React.MouseEvent<HTMLAnchorElement> | React.FocusEvent<HTMLAnchorElement>
+    e:
+      | React.MouseEvent<HTMLAnchorElement>
+      | React.FocusEvent<HTMLAnchorElement>,
   ) => {
     const link = e.currentTarget;
     const mailto = `mailto:${userPart}@${domainPart}`;
@@ -50,10 +48,9 @@ export function Footer() {
       link.href = mailto;
     }
   };
-  // ------------------------
 
   return (
-    <footer className="w-full border-t bg-background pt-10 pb-8 mt-auto transition-colors duration-300">
+    <footer className="w-full border-t border-border bg-background pt-10 pb-8 mt-auto min-h-[320px] transition-colors duration-300">
       <div className="container mx-auto px-6 md:px-8 max-w-7xl">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 mb-8">
           {/* Kolumna 1: Kontakt */}
@@ -63,38 +60,41 @@ export function Footer() {
             </h3>
             <a
               href="tel:+48516283896"
-              className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit"
-              title="Zadzwoń"
-              aria-label="Zadzwoń pod numer +48 516 283 896"
+              className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit min-h-[44px]"
+              title={t("footer.call", {
+                defaultValue: "Zadzwoń: +48 516 283 896",
+              })}
+              aria-label={t("footer.call_aria", {
+                defaultValue: "Zadzwoń pod numer +48 516 283 896",
+              })}
             >
-              <div className="p-2 bg-primary/5 rounded-full">
+              <div className="p-2 bg-primary/5 rounded-full shrink-0">
                 <Phone className="h-4 w-4" />
               </div>
-              <span>+48 516 283 896</span>
+              <span className="font-medium">+48 516 283 896</span>
             </a>
 
-            {/* ZABEZPIECZONY ADRES EMAIL (WERSJA HARDCORE DLA TESTÓW) */}
+            {/* ZABEZPIECZONY ADRES EMAIL */}
             <a
-              href="#" // Domyślnie pusty link, bot widzi "#"
+              href="#"
               onClick={handleEmailInteraction}
               onMouseEnter={handleEmailInteraction}
               onFocus={handleEmailInteraction}
-              className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit group"
-              title="Napisz e-mail"
-              aria-label="Wyślij e-mail"
+              className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit group min-h-[44px]"
+              title={t("footer.email", { defaultValue: "Napisz e-mail" })}
+              aria-label={t("footer.email_aria", {
+                defaultValue: "Napisz e-mail do MathMentor",
+              })}
             >
-              <div className="p-2 bg-primary/5 rounded-full">
+              <div className="p-2 bg-primary/5 rounded-full shrink-0">
                 <Mail className="h-4 w-4" />
               </div>
 
-              {/* Tutaj renderujemy e-mail w kawałkach, żeby w kodzie HTML nie było ciągu "x@y.com" */}
               <span className="flex items-center">
                 <span>{userPart}</span>
-                {/* Ozdobny span z @, oddzielony w DOM */}
                 <span className="px-[1px] text-muted-foreground/80 group-hover:text-primary transition-colors">
                   @
                 </span>
-                {/* Niewidoczny span mylący proste boty sklejające tekst */}
                 <span className="hidden" aria-hidden="true">
                   no-spam
                 </span>
@@ -113,11 +113,11 @@ export function Footer() {
                 href="https://wa.me/48516283896"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 text-muted-foreground hover:text-green-600 dark:hover:text-green-500 transition-colors w-fit"
-                title="Napisz na WhatsApp"
-                aria-label="Napisz wiadomość na WhatsApp"
+                className="flex items-center gap-3 text-muted-foreground hover:text-green-600 dark:hover:text-green-500 transition-colors w-fit min-h-[36px]"
+                title="WhatsApp"
+                aria-label="WhatsApp - MathMentor"
               >
-                <MessageSquare className="h-4 w-4" />
+                <MessageSquare className="h-4 w-4 shrink-0" />
                 <span>WhatsApp</span>
               </a>
 
@@ -125,11 +125,11 @@ export function Footer() {
                 href="https://m.me/100094791384674"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit"
-                title="Napisz na Messengerze"
-                aria-label="Napisz wiadomość na Messengerze"
+                className="flex items-center gap-3 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit min-h-[36px]"
+                title="Messenger"
+                aria-label="Messenger - MathMentor"
               >
-                <MessageCircle className="h-4 w-4" />
+                <MessageCircle className="h-4 w-4 shrink-0" />
                 <span>Messenger</span>
               </a>
 
@@ -137,11 +137,11 @@ export function Footer() {
                 href="https://www.facebook.com/profile.php?id=100094791384674"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit"
-                title="Odwiedź profil na Facebooku"
-                aria-label="Odwiedź profil na Facebooku"
+                className="flex items-center gap-3 text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 transition-colors w-fit min-h-[36px]"
+                title="Facebook"
+                aria-label="Facebook - Rafał Podymniak Korepetycje"
               >
-                <Facebook className="h-4 w-4" />
+                <Facebook className="h-4 w-4 shrink-0" />
                 <span>Facebook</span>
               </a>
 
@@ -149,11 +149,11 @@ export function Footer() {
                 href="https://korepetycje.netlify.app/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit"
-                title="Odwiedź stronę Raf-Edu"
-                aria-label="Odwiedź stronę Raf-Edu"
+                className="flex items-center gap-3 text-muted-foreground hover:text-primary transition-colors w-fit min-h-[36px]"
+                title="Raf-Edu"
+                aria-label="Raf-Edu Korepetycje Strona WWW"
               >
-                <Globe className="h-4 w-4" />
+                <Globe className="h-4 w-4 shrink-0" />
                 <span>Raf-Edu</span>
               </a>
             </div>
@@ -167,13 +167,13 @@ export function Footer() {
             <div className="flex flex-col gap-3">
               <Link
                 href={isPL ? "/regulamin" : "/terms"}
-                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer"
+                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer min-h-[36px] flex items-center"
               >
                 {t("legal.terms")}
               </Link>
               <Link
                 href={isPL ? "/polityka-prywatnosci" : "/privacy"}
-                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer"
+                className="text-muted-foreground hover:text-foreground hover:underline transition-colors w-fit cursor-pointer min-h-[36px] flex items-center"
               >
                 {t("legal.privacy")}
               </Link>
