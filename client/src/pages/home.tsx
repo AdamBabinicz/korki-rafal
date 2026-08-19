@@ -12,13 +12,13 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-background transition-colors duration-300 pt-16">
       <main className="flex-1 flex items-center relative overflow-hidden">
-        {/* TŁO */}
+        {/* TŁO - Stabilne pozycjonowanie absolutne bez wpływu na layout */}
         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-orange-500/5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center relative z-10 w-full py-12 lg:py-0">
-          {/* Left Column: Text & CTA */}
-          <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-700">
+          {/* Left Column: Text & CTA (Fade-in bez przesunięć layoutu) */}
+          <div className="space-y-8 animate-in fade-in duration-500">
             <h1 className="text-5xl lg:text-7xl font-bold font-display leading-tight">
               Math
               <span className="text-orange-700 dark:text-orange-500">
@@ -30,7 +30,7 @@ export default function HomePage() {
               </span>
             </h1>
 
-            <p className="text-xl text-foreground/80 max-w-lg leading-relaxed font-medium">
+            <p className="text-xl text-foreground/80 max-w-lg leading-relaxed font-medium min-h-[3.5rem]">
               {t("hero.subtitle")}
             </p>
 
@@ -64,8 +64,8 @@ export default function HomePage() {
 
             <div className="pt-8 border-t border-border grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="flex items-start gap-3">
-                <div className="p-2 bg-green-600/10 rounded-lg">
-                  <CalendarRange className="w-6 h-6 text-green-700 dark:text-green-500 shrink-0" />
+                <div className="p-2 bg-green-600/10 rounded-lg shrink-0 w-10 h-10 flex items-center justify-center">
+                  <CalendarRange className="w-6 h-6 text-green-700 dark:text-green-500" />
                 </div>
                 <div>
                   <h2 className="font-bold text-lg">
@@ -77,8 +77,8 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex items-start gap-3">
-                <div className="p-2 bg-orange-600/10 rounded-lg">
-                  <CheckCircle2 className="w-6 h-6 text-orange-700 dark:text-orange-500 shrink-0" />
+                <div className="p-2 bg-orange-600/10 rounded-lg shrink-0 w-10 h-10 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-orange-700 dark:text-orange-500" />
                 </div>
                 <div>
                   <h2 className="font-bold text-lg">
@@ -90,8 +90,8 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex items-start gap-3 sm:col-span-2">
-                <div className="p-2 bg-blue-600/10 rounded-lg">
-                  <Sigma className="w-6 h-6 text-blue-700 dark:text-blue-500 shrink-0" />
+                <div className="p-2 bg-blue-600/10 rounded-lg shrink-0 w-10 h-10 flex items-center justify-center">
+                  <Sigma className="w-6 h-6 text-blue-700 dark:text-blue-500" />
                 </div>
                 <div>
                   <h2 className="font-bold text-lg">
@@ -105,30 +105,32 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Right Column: Responsive Image */}
-          <div className="block relative animate-in fade-in slide-in-from-right-4 duration-1000 delay-200 mt-8 lg:mt-0">
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-orange-500/20 rounded-3xl blur-2xl transform rotate-6 scale-95" />
-            <picture>
-              <source
-                type="image/avif"
-                srcSet="/rafalp.avif 400w, /rafalpo.avif 800w, /rafa.avif 1200w"
-                sizes="(min-width: 1024px) 600px, 100vw"
-              />
-              <img
-                src="/rafalpo.avif"
-                srcSet="/rafalp.avif 400w, /rafalpo.avif 800w, /rafa.avif 1200w"
-                sizes="(min-width: 1024px) 600px, 100vw"
-                width={600}
-                height={600}
-                alt={t("hero.image_alt", {
-                  defaultValue: "Rafał Podymniak - Korepetytor matematyki",
-                })}
-                className="relative rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500 object-cover h-[350px] lg:h-[600px] w-full"
-                fetchPriority="high"
-                loading="eager"
-                decoding="async"
-              />
-            </picture>
+          {/* Right Column: Stabilna rezerwacja przestrzeni dla obrazu (Zero CLS) */}
+          <div className="block relative animate-in fade-in duration-700 delay-100 mt-8 lg:mt-0 w-full max-w-[600px] mx-auto">
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary/20 to-orange-500/20 rounded-3xl blur-2xl transform rotate-6 scale-95 pointer-events-none" />
+            <div className="relative aspect-square w-full max-w-[600px] min-h-[350px] lg:min-h-[600px] overflow-hidden rounded-3xl">
+              <picture>
+                <source
+                  type="image/avif"
+                  srcSet="/rafalp.avif 400w, /rafalpo.avif 800w, /rafa.avif 1200w"
+                  sizes="(min-width: 1024px) 600px, 100vw"
+                />
+                <img
+                  src="/rafalpo.avif"
+                  srcSet="/rafalp.avif 400w, /rafalpo.avif 800w, /rafa.avif 1200w"
+                  sizes="(min-width: 1024px) 600px, 100vw"
+                  width={600}
+                  height={600}
+                  alt={t("hero.image_alt", {
+                    defaultValue: "Rafał Podymniak - Korepetytor matematyki",
+                  })}
+                  className="w-full h-full object-cover rounded-3xl border border-border/50 shadow-2xl shadow-black/20 rotate-3 hover:rotate-0 transition-transform duration-500"
+                  fetchPriority="high"
+                  loading="eager"
+                  decoding="async"
+                />
+              </picture>
+            </div>
           </div>
         </div>
       </main>
