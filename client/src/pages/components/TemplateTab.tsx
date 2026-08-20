@@ -264,16 +264,18 @@ export default function TemplateTab() {
 
   return (
     <Card className="animate-in fade-in duration-500">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <CardTitle>{t("admin.template_title")}</CardTitle>
-          <CardDescription>{t("admin.template_desc")}</CardDescription>
+          <CardDescription className="mt-1">
+            {t("admin.template_desc")}
+          </CardDescription>
         </div>
 
         {/* Przycisk Generowania */}
         <Dialog open={isGenerateOpen} onOpenChange={setIsGenerateOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button variant="outline" className="w-full sm:w-auto shrink-0">
               <LayoutTemplate className="mr-2 h-4 w-4" />
               {t("admin.generate_from_template")}
             </Button>
@@ -284,7 +286,6 @@ export default function TemplateTab() {
               <DialogDescription>{t("admin.generate_desc")}</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              {/* RESPAPONSYWNY UKŁAD: 1 kolumna na mobile, 2 na desktopie */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>{t("admin.start_date")}</Label>

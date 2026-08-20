@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-// Import komponentów, które właśnie stworzyliśmy
+// Import komponentów zakładek
 import CalendarTab from "../components/CalendarTab";
 import TemplateTab from "../components/TemplateTab";
 import StudentsTab from "../components/StudentsTab";
@@ -19,7 +19,7 @@ export default function AdminPanel() {
   const { t } = useTranslation();
 
   return (
-    <div className="mt-16 space-y-8 animate-in fade-in duration-500">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-16 space-y-8 animate-in fade-in duration-500">
       {/* Nagłówek Panelu */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

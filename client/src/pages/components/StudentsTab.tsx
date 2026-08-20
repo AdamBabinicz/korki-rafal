@@ -196,14 +196,16 @@ export default function StudentsTab() {
 
   return (
     <Card className="animate-in fade-in duration-500">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <CardTitle>{t("admin.tab_students")}</CardTitle>
-          <CardDescription>{t("admin.students_list_desc")}</CardDescription>
+          <CardDescription className="mt-1">
+            {t("admin.students_list_desc")}
+          </CardDescription>
         </div>
         <Dialog open={isAddStudentOpen} onOpenChange={setIsAddStudentOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto shrink-0">
               <Plus className="mr-2 h-4 w-4" />
               {t("admin.add_student_btn")}
             </Button>
